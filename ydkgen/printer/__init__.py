@@ -21,6 +21,7 @@ printer.py
  
 """
 
+from .cplusplus.cplusplus_printer import CPlusPlusPrinter
 
 from .python.bits_printer import BitsPrinter
 from .python.class_common_path_printer import ClassCommonPathPrinter

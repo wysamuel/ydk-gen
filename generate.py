@@ -122,6 +122,12 @@ if __name__ == '__main__':
                       default=True,
                       help="Generate Python SDK")
 
+    parser.add_option("-c", "--cpp",
+                      action="store_true",
+                      dest="cpp",
+                      default=False,
+                      help="Generate C++ SDK")
+
     parser.add_option("-v", "--verbose",
                       action="store_true",
                       dest="verbose",
@@ -164,12 +170,12 @@ if __name__ == '__main__':
         output_directory = options.output_directory
 
     YdkGenerator().generate(options.profile, output_directory, ydk_root,
-                    options.groupings_as_class, options.python)
+                    options.groupings_as_class, options.python, options.cpp)
 
     if options.gendoc == True:
         generate_documentation(output_directory, ydk_root)
 
-    create_pip_package(output_directory)
+    # create_pip_package(output_directory)
 
     print 'Code generation completed successfully!'
 

@@ -183,7 +183,7 @@ class NamedElement(Element):
                 element = element.owner
             names.append(element.name)
             element = element.owner
-        return '.'.join(reversed(names))
+        return '::'.join(reversed(names))
 
     def qn(self):
         ''' get the qualified name , name sans
@@ -195,7 +195,7 @@ class NamedElement(Element):
                 element = element.owner
             names.append(element.name)
             element = element.owner
-        return '.'.join(reversed(names))
+        return '::'.join(reversed(names))
 
 
 class Package(NamedElement):

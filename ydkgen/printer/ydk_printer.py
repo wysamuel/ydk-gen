@@ -90,14 +90,14 @@ class YdkPrinter():
 
     def print_files(self):
         self.print_modules()
-        self.print_init_file(self.models_dir)
-        self.print_yang_ns_file()
-        self.print_import_tests_file()
-        self.print_deviate_file()
+        # self.print_init_file(self.models_dir)
+        # self.print_yang_ns_file()
+        # self.print_import_tests_file()
+        # self.print_deviate_file()
 
         # RST Documentation
-        if self.ydk_doc_dir is not None:
-            self.print_python_rst_ydk_models()
+        # if self.ydk_doc_dir is not None:
+        #    self.print_python_rst_ydk_models()
 
     def print_modules(self):
         only_modules = [package.stmt for package in self.packages]
@@ -120,10 +120,11 @@ class YdkPrinter():
 
         # RST Documentation
         self.print_python_module(package, index, module_dir, size, sub)
-        self.print_meta_module(package, meta_dir)
-        self.print_test_module(package, test_output_dir)
-        if self.ydk_doc_dir is not None:
-            self.print_python_rst_module(package)
+        self.print_source(package, index, module_dir, size, sub)
+        # self.print_meta_module(package, meta_dir)
+        # self.print_test_module(package, test_output_dir)
+        # if self.ydk_doc_dir is not None:
+        #    self.print_python_rst_module(package)
 
     def print_python_rst_module(self, package):
         if self.ydk_doc_dir is None:
@@ -153,11 +154,19 @@ class YdkPrinter():
                         _EmitArgs(self.ypy_ctx, packages))
 
     def print_python_module(self, package, index, path, size, sub):
-        self.print_init_file(path)
+        # self.print_init_file(path)
 
         package.parent_pkg_name = sub
         self.print_file(get_python_module_file_name(path, package),
                         emit_module,
+                        _EmitArgs(self.ypy_ctx, package, (sub, package.name)))
+
+    def print_source(self, package, index, path, size, sub):
+        # self.print_init_file(path)
+
+        package.parent_pkg_name = sub
+        self.print_file(get_python_module_source(path, package),
+                        emit_source,
                         _EmitArgs(self.ypy_ctx, package, (sub, package.name)))
 
     def print_meta_module(self, package, path):
@@ -233,8 +242,11 @@ def get_python_rst_ydk_models_file_name(path):
     return '%s/ydk.models.rst' % path
 
 
+def get_python_module_source(path, package):
+    return '%s/%s.cpp' % (path, package.name)
+
 def get_python_module_file_name(path, package):
-    return '%s/%s.py' % (path, package.name)
+    return '%s/%s.h' % (path, package.name)
 
 
 def get_meta_module_file_name(path, package):
@@ -254,7 +266,17 @@ def emit_module_header(ctx, package, mheader=None, is_meta=False):
     # ::::::::::::::::::::::::::::::::::::::::
     # Print the header
     # ::::::::::::::::::::::::::::::::::::::::
-    s = package.stmt
+    ctx.writeln('#include <memory>')
+    ctx.writeln('#include <vector>')
+    ctx.writeln('#include <string>')
+    ctx.writeln('#include "ydk/utils/base.h"')
+    ctx.writeln('#include "ydk/utils/types.h"')
+    ctx.writeln('#include "ydk/utils/make_unique.h"')
+    ctx.bline()
+    ctx.writeln('namespace ydk {')
+    ctx.writeln('namespace %s {' % package.name)
+
+    ''''s = package.stmt
     if is_meta:
         rpcs = [idx for idx in package.owned_elements if isinstance(idx, Class) and idx.is_rpc()]
         anyxml_import = ''
@@ -296,7 +318,7 @@ def emit_module_header(ctx, package, mheader=None, is_meta=False):
     if revision is not None:
         ctx.revision = yang_id(revision)
 
-    ctx.ns += [(yang_id(s), ctx.namespace)]
+    ctx.ns += [(yang_id(s), ctx.namespace)]'''
 
 
 def emit_yang_ns(ctx, packages):
@@ -345,12 +367,40 @@ def emit_ydk_models_rst(ctx, packages):
 def emit_module(ctx, package, mheader):
 
     emit_module_header(ctx, package, mheader=mheader)
+    ctx.lvl_inc()
+    ctx.bline()
 
     if package is not None:
-        emit_module_enums(ctx, package)
-        emit_module_bits(ctx, package)
+        # emit_module_enums(ctx, package)
+        # emit_module_bits(ctx, package)
         emit_module_classes(ctx, package)
         ctx.bline()
+
+    ctx.lvl_dec()
+    ctx.writeln('};')
+    ctx.writeln('};')
+
+
+def emit_source(ctx, package, mheader):
+
+    ctx.writeln('#include <memory>')
+    ctx.writeln('#include <vector>')
+    ctx.writeln('#include <string>')
+    ctx.writeln('#include "ydk/models/%s/%s.h"' % (package.name, package.name))
+    ctx.bline()
+    ctx.writeln('namespace ydk {')
+    ctx.writeln('namespace %s {' % package.name)
+
+    if package is not None:
+        # emit_module_enums(ctx, package)
+        # emit_module_bits(ctx, package)
+        emit_module_source(ctx, package)
+        ctx.bline()
+
+    ctx.lvl_dec()
+    ctx.writeln('};')
+    ctx.writeln('};')
+
 
 
 def emit_module_enums(ctx, package):
@@ -373,6 +423,9 @@ def emit_module_classes(ctx, package):
     ctx.printer.print_classes_at_same_level(
         [clazz for clazz in package.owned_elements if isinstance(clazz, Class)])
 
+def emit_module_source(ctx, package):
+    ctx.printer.print_source_at_same_level(
+        [clazz for clazz in package.owned_elements if isinstance(clazz, Class)])
 
 def emit_test_module(ctx, package):
     ctx.printer.print_testcases(package)

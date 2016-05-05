@@ -29,7 +29,7 @@ logger.addHandler(logging.NullHandler())
 
 
 class YdkGenerator(object):
-    def generate(self, profile_file, output_directory, ydk_root, groupings_as_class, generate_python):
+    def generate(self, profile_file, output_directory, ydk_root, groupings_as_class, generate_python, generate_cpp):
         """
             Generate ydk-py based in the output_directory using the supplied
             profile_file
@@ -40,21 +40,23 @@ class YdkGenerator(object):
             :param bool groupings_as_class: If set to true YANG grouping is converted to a class.
             :raise YdkGenException: if an error has occurred
         """
+        # call the language emitter
+        language = ''
+        if generate_cpp:
+            language = 'cpp'
+        elif generate_python:
+            language = 'python'
 
         self._perform_argument_checks(profile_file, output_directory, ydk_root)
-        (ydk_dir, ydk_doc_dir) = self._get_ydk_paths(output_directory, ydk_root)
+        (ydk_dir, ydk_doc_dir) = self._get_ydk_paths(output_directory, ydk_root, language)
         resolved_model_dir = self._get_resolved_model_path_and_version(profile_file, ydk_root, ydk_dir)
 
         pyang_builder = PyangModelBuilder(resolved_model_dir)
-        modules = pyang_builder.parse_and_return_modules()
+        stmt_modules = pyang_builder.parse_and_return_modules()
 
         # create the packages
-        packages = self._build_api_model_packages(modules, groupings_as_class)
+        packages = self._build_api_model_packages(stmt_modules, groupings_as_class)
 
-        # call the language emitter
-        language = ''
-        if generate_python:
-            language = 'python'
         printer = YdkPrinter(ydk_dir, ydk_doc_dir, language)
         printer.emit(packages, pyang_builder.submodules)
 
@@ -93,10 +95,10 @@ class YdkGenerator(object):
             raise YdkGenException(err_msg)
         return resolved_model_dir
 
-    def _get_ydk_paths(self, output_directory, ydk_root):
-        py_sdk_root = output_directory + '/python/'
+    def _get_ydk_paths(self, output_directory, ydk_root, language):
+        py_sdk_root = output_directory + '/' + language + '/'
         py_api_doc_gen = py_sdk_root + '/docsgen'
-        py_api_doc = output_directory + '/python/docs_expanded'
+        py_api_doc = output_directory + '/' + language + '/docs_expanded'
 
         if os.path.isdir(py_sdk_root):
             shutil.rmtree(py_sdk_root)
@@ -105,7 +107,7 @@ class YdkGenerator(object):
         if os.path.isfile(py_api_doc_gen + '/getting_started.rst'):
             os.remove(py_api_doc_gen + '/getting_started.rst')
 
-        shutil.copytree(ydk_root + '/sdk/python', output_directory + '/python',
+        shutil.copytree(ydk_root + '/sdk/' + language, output_directory + '/' + language,
                         ignore=shutil.ignore_patterns('.gitignore', 'ncclient'))
 
 

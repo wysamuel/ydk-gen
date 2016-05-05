@@ -15,17 +15,19 @@
 # ------------------------------------------------------------------
 
 """
-printer_factory.py
+language_factory.py
  
  Returns printer
  
 """
-from ydkgen.printer import PythonModulePrinter
+from ydkgen.printer import PythonModulePrinter, CPlusPlusPrinter
 
 
 class LanguageFactory(object):
         
     def get_printer(self, language):
+        if language == 'cplusplus':
+            return CPlusPlusPrinter
         if language == 'python':
             return PythonModulePrinter
         else:
