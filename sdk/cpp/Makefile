@@ -15,6 +15,7 @@
 #------------------------------------------------------------------
 
 SDK_DIR         = `pwd`
+LIBSSH2_DIR     = /Users/abhirame/Cisco/libssh2/libssh2
 MODELS_DIR      = $(SDK_DIR)/ydk/models
 BGP_MODEL       = $(MODELS_DIR)/bgp/bgp.cpp
 PROVIDERS       = $(SDK_DIR)/ydk/providers.cpp
@@ -23,17 +24,19 @@ SERVICES        = $(SDK_DIR)/ydk/services.cpp
 MODELS_DIRS     = ${shell find ${MODELS_DIR} -type d -print}
 MODELS_LIST     = $(foreach dir,$(MODELS_DIRS),$(wildcard $(dir)/*.cpp))
 
+LIBSSH2_FILES   = $(wildcard $(LIBSSH2_DIR)/src/*.c)
+
 CXX             = g++
 CXXFLAGS        = -std=c++0x -I/$(SDK_DIR)
-LDFLAGS         = -shared  -fPIC
+LDFLAGS         = -shared  -fPIC 
  
 default: all
 
 all : $(MODELS_LIST)
 	@$(CXX) $(CXXFLAGS) $(LDFLAGS) -o ydk_cpp.so $^
 
-bgp_sample : samples/bgp_sample.cpp	 	
-	@$(CXX) $(CXXFLAGS) -o bgp_sample $(PROVIDERS) $(SERVICES) $(BGP_MODEL) $<
+bgp_sample : samples/bgp_sample.cpp $(wildcard $(SDK_DIR)/ydk/*.h)
+	$(CXX) -lssl -lssh2 $(CXXFLAGS) -o bgp_sample $(PROVIDERS) $(SERVICES) $(BGP_MODEL) $<
 
 clean :
 	@rm bgp_sample

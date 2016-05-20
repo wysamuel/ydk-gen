@@ -35,6 +35,16 @@ class HeaderPrinter(FilePrinter):
         self.ctx.writeln('namespace ydk {')
         sub = package.get_py_mod_name()[len('ydk.models.'): package.get_py_mod_name().rfind('.')]
         self.ctx.writeln('namespace {0}'.format(sub + ' {'))
+        usings_to_print = []
+        for imported_type in package.imported_types():
+            using_stmt = 'using ' + imported_type.get_py_mod_name()[len('ydk.models.'): package.get_py_mod_name().rfind('.')] + ';'
+            if using_stmt in usings_to_print:
+                continue
+            else:
+                usings_to_print.append(using_stmt)
+        imports_to_print = sorted(usings_to_print)
+        for import_to_print in imports_to_print:
+            self.ctx.writeln('%s' % import_to_print)
         self.ctx.bline()
 
     def _print_imports(self, package):
