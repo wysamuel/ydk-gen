@@ -39,6 +39,41 @@ import importlib
 import ydk.models._yang_ns as _yang_ns
 
 
+from ctypes import CDLL, c_char_p, c_void_p, c_int
+
+class YdkClient(object):
+    def __init__(self, username, password, host, port):
+        self.libc = CDLL("libydk_client.so")
+        self.libc.create_client.argtypes = [c_char_p, c_char_p, c_char_p, c_int, c_int]
+        self.libc.create_client.restype = c_void_p
+
+        self.libc.connect_to_server.argtypes = [c_void_p]
+        self.libc.connect_to_server.restype = c_int
+
+        self.libc.send_payload.argtypes = [c_void_p, c_char_p]
+        self.libc.send_payload.restype = c_char_p
+
+        self.libc.get_server_capabilities.argtypes = [c_void_p]
+        self.libc.get_server_capabilities.restype = c_void_p
+
+        self.libc.disconnect_from_server.argtypes = [c_void_p]
+        self.libc.disconnect_from_server.restype = None
+
+        self.client_obj = self.libc.create_client(username, password, host, port, 0)
+        if self.libc.connect_to_server(self.client_obj) > 0:
+            return self
+        return None
+
+    def execute_payload(self, payload):
+        return self.libc.send_payload(self.client_obj, payload)
+
+    def get_capabilities(self):
+        return self.libc.get_server_capabilities(self.client_obj)
+
+    def disconnect(self):
+        self.libc.disconnect_from_server(self.client_obj)
+
+
 class _SPPlugin(object):
     def __init__(self, service_protocol_name):
         self.service_protocol_name = service_protocol_name
@@ -61,6 +96,7 @@ class _NCClientSPPlugin(_SPPlugin):
     def __init__(self, timeout):
         self.head = None
         self._nc_manager = None
+        self.ydk_client = None
         self.netconf_sp_logger = logging.getLogger('ydk.providers.NetconfServiceProvider')
         self.separator = '*' * 28
         self.timeout = timeout
@@ -159,13 +195,21 @@ class _NCClientSPPlugin(_SPPlugin):
         '''
             Raises exception on error, else returns result
         '''
-        service_provider_rpc = self._create_rpc_instance(self.timeout)
+        # import pdb
+        # pdb.set_trace()
+        # service_provider_rpc = self._create_rpc_instance(self.timeout)
         reply_str = "FAILED!"
         if len(payload) == 0:
             return reply_str
-        payload = payload.replace("101", service_provider_rpc._id, 1)
+        # payload = payload.replace("101", service_provider_rpc._id, 1)
         self.netconf_sp_logger.debug('\n%s\n%s', self.separator, payload)
-        reply_str = service_provider_rpc._request(payload)
+
+        assert self.ydk_client is not None
+        reply_str = self.ydk_client.execute_payload(payload)
+        # print '--->>>>>\n', reply_str, '\n<<<<--!!'
+        reply_str = ' '.join(reply_str.split('\n')[1:])
+        reply_str = reply_str.strip()
+        # print '--->>>>>\n', reply_str, '\n<<<<--\n'
         return self._handle_rpc_reply(operation, payload, reply_str)
 
     def _create_rpc_instance(self, timeout):
@@ -183,13 +227,16 @@ class _NCClientSPPlugin(_SPPlugin):
         return _SP_RPC(self._nc_manager._session, self._nc_manager._device_handler, timeout=timeout)
 
     def _handle_rpc_reply(self, optype, payload, reply_str):
-        err, pathlist = check_errors(reply_str.xml)
+        if len(reply_str) == 0:
+            return ''
+        if 'ok' in reply_str:
+            self._handle_rpc_ok(optype, payload, reply_str)
+            return
+        err, pathlist = check_errors(reply_str)
         if err:
             self._handle_rpc_error(payload, reply_str, pathlist)
-        else:
-            self._handle_rpc_ok(optype, payload, reply_str)
 
-        root = etree.fromstring(reply_str.xml)
+        root = etree.fromstring(reply_str)
         payload = etree.tostring(root, method='xml', pretty_print='True')
         return payload
 
@@ -202,16 +249,21 @@ class _NCClientSPPlugin(_SPPlugin):
             self.netconf_sp_logger.debug('\n%s\n%s' , reply_str, self.separator)
 
     def _handle_rpc_error(self, payload, reply_str, pathlist):
-        self.netconf_sp_logger.error('%s\n%s\n%s\n%s' , self.separator, payload, reply_str.xml, self.separator)
+        self.netconf_sp_logger.error('%s\n%s\n%s\n%s' , self.separator, payload, reply_str, self.separator)
         raise YPYServiceProviderError(YPYErrorCode.SERVER_REJ, reply_str)
 
     def _handle_commit(self, payload, reply_str):
-        assert self._nc_manager is not None
-        self.netconf_sp_logger.debug('\n<rpc xmlns="urn:ietf:params:xml:ns:netconf:base:1.0" message-id="101">\n  <commit/>\n</rpc>')
-        commit = self._nc_manager.commit()
-        if 'ok' not in commit.xml:
+        # assert self._nc_manager is not None
+        assert self.ydk_client is not None
+        self.netconf_sp_logger.debug('\n<rpc xmlns="urn:ietf:params:xml:ns:netconf:base:1.0">\n  <commit/>\n</rpc>')
+        # rep = self._nc_manager.commit()
+        rep = self.ydk_client.execute_payload('\n<rpc xmlns="urn:ietf:params:xml:ns:netconf:base:1.0">\n  <commit/>\n</rpc>')
+        import time
+        time.sleep(2)
+        if 'ok' not in rep:
             self.netconf_sp_logger.error('%s\n%s\n%s\ncommit-reply\n%s\n%s', self.separator,
-                                    payload, reply_str.xml, commit.xml, self.separator)
+                                    payload, reply_str, rep.xml, self.separator)
+            print '!!!!--->>', rep.xml
             raise YPYServiceProviderError(YPYErrorCode.SERVER_COMMIT_ERR, reply_str)
         else:
             self.netconf_sp_logger.debug('\n%s\n%s' , reply_str, self.separator)
@@ -226,6 +278,12 @@ class _NCClientSPPlugin(_SPPlugin):
                 look_for_keys=False,
                 allow_agent=False,
                 hostkey_verify=False)
+            self.ydk_client = YdkClient(
+                username=session_config.username,
+                password=session_config.password,
+                host=session_config.hostname,
+                port=session_config.port)
+
         elif (session_config.transportMode == _SessionTransportMode.TCP):
             self._nc_manager = manager.connect(
                 host=session_config.hostname,
@@ -235,7 +293,9 @@ class _NCClientSPPlugin(_SPPlugin):
 
     def disconnect(self):
         assert self._nc_manager is not None
+        assert self.ydk_client is not None
         self._nc_manager.close_session()
+        self.ydk_client.disconnect()
 
     def _get_target_datastore(self):
         assert self._nc_manager is not None
@@ -247,7 +307,7 @@ class _NCClientSPPlugin(_SPPlugin):
     def _create_root(self):
         NSMAP = {'xmlns': 'urn:ietf:params:xml:ns:netconf:base:1.0'}
         self.head = etree.Element('rpc', NSMAP)
-        self.head.set('message-id', '101')
+        # self.head.set('message-id', '101')
         return self.head
 
     def _match_key(self, root, entity):
@@ -529,9 +589,17 @@ def confirmed_commit_supported(session_manager):
 def check_errors(payload):
     err = False
     payload = payload.replace('xmlns=', 'xmlnamespace=')
+
     p = etree.XMLParser(remove_blank_text=True)
     pathlist = []
+    if len(payload) == 0:
+        print '---->>'
+        return err, pathlist
+    # try:
+    # print '--->>', payload
     elem = etree.XML(payload, parser=p)
+
+
     payload = etree.tostring(elem)
     tree = etree.fromstring(payload)
     root = etree.ElementTree(tree)

@@ -378,7 +378,10 @@ def get_root_helper(curr_rt, pathlist):
 def payload_convert(payload):
     # TODO add feature to detect types of payload: JSON or xml
     # drop namespaces and key_val pairs
-    rt_new = etree.Element('rpc-reply')
+    if len(payload) == 0:
+        return None
+    # print 'hoooooooooooo', payload
+    rt_new = etree.Element('a')
     rt = etree.fromstring(payload)
     chchs = rt.getchildren()[0].getchildren()
     for ch in chchs:

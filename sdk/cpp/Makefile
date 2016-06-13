@@ -24,17 +24,24 @@ MODELS_DIRS     = ${shell find ${MODELS_DIR} -type d -print}
 MODELS_LIST     = $(foreach dir,$(MODELS_DIRS),$(wildcard $(dir)/*.cpp))
 
 CXX             = g++
-CXXFLAGS        = -std=c++0x -I/$(SDK_DIR)
+CXXFLAGS        = -Wall -std=c++0x
 LDFLAGS         = -shared  -fPIC
+ARCHIVE         = ar
+ARFLAGS         = -cvq
  
 default: all
 
 all : $(MODELS_LIST)
-	@$(CXX) $(CXXFLAGS) $(LDFLAGS) -o ydk_cpp.so $^
+	@$(CXX) $(CXXFLAGS) $(LDFLAGS)  -I/$(SDK_DIR) -o ydk_cpp.so $^
 
-bgp_sample : samples/bgp_sample.cpp	 	
+bgp_sample : samples/bgp_sample.cpp
 	@$(CXX) $(CXXFLAGS) -o bgp_sample $(PROVIDERS) $(SERVICES) $(BGP_MODEL) $<
+
+netconf_client : ydk/netconf_client.cpp ydk/netconf_client.h Makefile
+	@printf "Compiling %-40s\n\n" $<
+	$(CXX) $(CXXFLAGS) -c $<
+	$(ARCHIVE) $(ARFLAGS) libydk_client.a *.o
+	$(CXX) $(CXXFLAGS) $(LDFLAGS) -o /usr/local/lib/libydk_client.so $< ydk/c_wrapper.cpp -lnetconf
 
 clean :
 	@rm bgp_sample
-

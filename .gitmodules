@@ -1,0 +1,6 @@
+[submodule "sdk/cpp/tests/unittest-cpp"]
+	path = sdk/cpp/tests/unittest-cpp
+	url = https://github.com/unittest-cpp/unittest-cpp.git
+[submodule "sdk/cpp/libnetconf"]
+	path = sdk/cpp/libnetconf
+	url = https://github.com/abhikeshav/libnetconf.git

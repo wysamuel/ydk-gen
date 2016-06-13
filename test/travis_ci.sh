@@ -28,6 +28,15 @@ YDKTEST_FXS=$FXS_DIR/ydktest/
 BGP_DEVIATION_FXS=$FXS_DIR/bgp_deviation/
 YDKTEST_DEVIATION_FXS=$FXS_DIR/ydktest_deviation/
 
+function run_exec_test {
+    $@
+    local status=$?
+    if [ $status -ne 0 ]; then
+        exit $status
+    fi
+    return $status
+}
+
 function run_test_no_coverage {
     python $@ 
     local status=$?
@@ -46,6 +55,18 @@ function run_test {
     return $status
 }
 
+# clone libnetconf
+function clone_libnetconf {
+    cd $ROOT
+    printf "\nCloning from: https://github.com/cesnet/libnetconf\n"
+    git clone https://github.com/cesnet/libnetconf.git
+    cd libnetconf
+    ./configure
+    make
+    sudo make install
+    cd ..
+}
+
 # clone repo
 function clone_repo {
     cd $ROOT
@@ -60,6 +81,10 @@ function set_root {
 }
 
 function setup_env {
+    sudo apt-get --assume-yes install cmake
+    sudo apt-get update
+    sudo apt-get --assume-yes --fix-missing install cmake
+    run_exec_test cmake
     virtualenv myenv
     source myenv/bin/activate
     pip install coverage
@@ -140,7 +165,7 @@ function run_sanity_tests {
 }
 
 # cpp tests
-function run_cpp_tests {
+function run_cpp_gen_tests {
     printf "\nGenerating ydktest C++ model APIs\n"
     run_test generate.py --profile profiles/test/ydktest.json --cpp --verbose
     cd gen-api/cpp
@@ -150,6 +175,20 @@ function run_cpp_tests {
         exit $status
     fi
     cd -
+}
+
+# cpp sanity tests
+function run_cpp_sanity_tests {
+    cd $YDK_ROOT
+    printf "\nInitializing C++ unit tests\n"
+    git submodule init
+    git submodule update
+    cd sdk/cpp/tests/unittest-cpp/builds
+    cmake ..
+    make
+    cd ../..
+    run_exec_test make
+    cd $YDK_ROOT
 }
 
 # deviation tests
@@ -208,6 +247,7 @@ while getopts "r:b:" o; do
     esac
 done
 
+clone_libnetconf
 clone_repo
 set_root
 setup_env
@@ -217,7 +257,8 @@ run_pygen_test
 generate_ydktest_package
 run_sanity_tests
 submit_coverage
-run_cpp_tests
+run_cpp_gen_tests
+run_cpp_sanity_tests
 
 setup_deviation_sanity_models
 run_deviation_sanity
