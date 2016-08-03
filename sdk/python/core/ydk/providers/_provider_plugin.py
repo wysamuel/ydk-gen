@@ -247,6 +247,7 @@ class _ClientSPPlugin(_SPPlugin):
 
         root = etree.fromstring(reply_str)
         payload = etree.tostring(root, method='xml', pretty_print='True')
+        self.netconf_sp_logger.debug('\n%s' , payload)
         return payload
 
     def _handle_rpc_ok(self, optype, payload, reply_str):

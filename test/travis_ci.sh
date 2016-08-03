@@ -24,15 +24,15 @@ RED="\033[0;31m"
 NOCOLOR="\033[0m"
 
 # Environment Paths
-ROOT=/root
-CONFD_RC=/root/confd/confdrc
-YDKTEST_DEST_FXS=/root/confd/etc/ydktest
-YDKTEST_MODEL_FXS=/root/confd/etc/ydk_model_test
-YDKTEST_MODEL_DEST_FXS=/root/confd/etc/model_test_fxs
-AUGMENTATION_DEST_FXS=/root/confd/etc/augmentation
-DEVIATION_DEST_FXS=/root/confd/etc/deviation
-YDKTEST_DEVIATION_SOURCE_FXS=/root/confd/src/confd/yang/ydktest/fxs/ydktest_deviation
-BGP_DEVIATION_SOURCE_FXS=/root/confd/src/confd/yang/ydktest/fxs/bgp_deviation
+ROOT=`pwd`
+CONFD_RC=$ROOT/confd/confdrc
+YDKTEST_DEST_FXS=$ROOT/confd/etc/ydktest
+YDKTEST_MODEL_FXS=$ROOT/confd/etc/ydk_model_test
+YDKTEST_MODEL_DEST_FXS=$ROOT/confd/etc/model_test_fxs
+AUGMENTATION_DEST_FXS=$ROOT/confd/etc/augmentation
+DEVIATION_DEST_FXS=$ROOT/confd/etc/deviation
+YDKTEST_DEVIATION_SOURCE_FXS=$ROOT/confd/src/confd/yang/ydktest/fxs/ydktest_deviation
+BGP_DEVIATION_SOURCE_FXS=$ROOT/confd/src/confd/yang/ydktest/fxs/bgp_deviation
 
 function print_msg {
     echo -e "${RED}*** $(date) $1${NOCOLOR}"
@@ -67,13 +67,23 @@ function run_test {
 
 
 function setup_env {
+    print_msg "Creating FXS directories"
+
+    mkdir -p YDKTEST_DEST_FXS
+    mkdir -p YDKTEST_MODEL_FXS
+    mkdir -p YDKTEST_MODEL_DEST_FXS
+    mkdir -p AUGMENTATION_DEST_FXS
+    mkdir -p DEVIATION_DEST_FXS
+    mkdir -p YDKTEST_DEVIATION_SOURCE_FXS
+    mkdir -p BGP_DEVIATION_SOURCE_FXS
+
     print_msg "In Method: setup_env"
     cd $ROOT
     printf "\nCloning from: %s, branch: %s\n" "$REPO" "$BRANCH"
-    git clone -b $BRANCH $REPO
+#git clone -b $BRANCH $REPO
 
     printf "\nSetting up YDKGEN_HOME\n"
-    cd ydk-gen
+#cd ydk-gen
     export YDKGEN_HOME=`pwd`
 
     printf "\nInstalling packages...\n"
@@ -373,20 +383,6 @@ function submit_coverage {
 
 # Execution of the script starts here
 
-REPO=$1
-BRANCH=master
-#TODO ADD Argument check
-
-while getopts "r:b:" o; do
-    case "${o}" in
-        r)
-            REPO=${OPTARG}
-            ;;
-        b)
-            BRANCH=${OPTARG}
-            ;;
-    esac
-done
 
 
 setup_env

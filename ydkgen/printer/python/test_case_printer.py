@@ -27,6 +27,10 @@ from ydkgen.printer import meta_data_util
 from pyang.types import IntTypeSpec, StringTypeSpec, UnionTypeSpec, PathTypeSpec, \
         RangeTypeSpec, BooleanTypeSpec, BinaryTypeSpec, EmptyTypeSpec, \
         LengthTypeSpec, Decimal64TypeSpec, PatternTypeSpec
+import logging
+
+
+logger = logging.getLogger(__name__)
 
 
 class LeafInfo(object):
@@ -212,12 +216,12 @@ class TestCasePrinter(object):
         if clazz.owner is not None and isinstance(clazz.owner, Class):
             owner_obj_name = get_obj_name_with_suffix(clazz.owner, suffix)
         if isinstance(clazz, Class):
-            self.ctx.writeln('%s = %s()' % (obj_name, clazz.qn()))            
+            self.ctx.writeln('%s = %s()' % (obj_name, clazz.qn()))
             self._print_properties(obj_name, props)
             if len(clazz.get_key_props()) > 0:
                 self._print_list_obj_append(clazz, clazz.owner, suffix)
         if isinstance(clazz.owner, Class):
-            self._print_class_instance(clazz.owner, clazz.owner.get_key_props(), suffix)
+            self._print_class_instance(clazz.owner, clazz.owner.get_key_props() + self._get_min_elements_leafs(clazz.owner), suffix)
         if clazz.owner is not None and isinstance(clazz.owner, Class):
             self.ctx.writeln('%s.parent = %s' % (obj_name, owner_obj_name))
 
@@ -256,7 +260,7 @@ class TestCasePrinter(object):
 
         return mandatory_leafs
 
-    def _print_parents_mandatory_leafs(self,clazz):
+    def _print_parents_mandatory_leafs(self, clazz):
         if isinstance(clazz, Class) and not clazz.is_identity() and clazz.is_config():
             if clazz.owner is not None:
                 self._print_parents_mandatory_leafs(clazz.owner)
@@ -317,9 +321,6 @@ class TestCasePrinter(object):
                 return
             elif 'host' in type_stmt.arg:
                 self.ctx.writeln(format_string % (obj_name, prop.name, "'1.2.3.4'"))
-                return
-            elif 'mac-address' in type_stmt.arg:
-                self.ctx.writeln(format_string % (obj_name, prop.name, "'00:0a:95:9d:68:16'"))
                 return
 
         if isinstance(type_spec, Class):
@@ -403,7 +404,7 @@ class TestCasePrinter(object):
                     elif pattern.arg == '[a-fA-F0-9]{2}(\.[a-fA-F0-9]{4}){3,9}\.[a-fA-F0-9]{2}':
                         self.ctx.writeln(format_string % (obj_name, prop.name, "'aa.aaaa.aaaa.aaaa.aa'"))
                         return
-                    elif pattern.arg == '(act)|(pre)':
+                    elif '(act)' in pattern.arg:
                         self.ctx.writeln(format_string % (obj_name, prop.name, "'act'"))
                         return
                     elif pattern.arg == '((([a-zA-Z0-9_]*\d+)|(\*))/){2}(([a-zA-Z0-9_]*\d+)|(\*))':
@@ -415,8 +416,8 @@ class TestCasePrinter(object):
                     elif pattern.arg == '[a-zA-Z0-9][a-zA-Z0-9\._@$%+#:=<>\-]{0,62}':
                         self.ctx.writeln(format_string % (obj_name, prop.name, "'Hello'"))
                         return
-                    elif pattern.arg == '([0-9]|[1-5][0-9]|6[0-3])|(([0-9]|[1-5][0-9]|6[0-3])-([0-9]|[1-5][0-9]|6[0-3]))|(af11)|(af12)|(af13)|(af21)|(af22)|(af23)|(af31)|(af32)|(af33)|(af41)|(af42)|(af43)|(ef)|(default)|(cs1)|(cs2)|(cs3)|(cs4)|(cs5)|(cs6)|(cs7)':
-                        self.ctx.writeln(format_string % (obj_name, prop.name, "'cs123'"))
+                    elif '(cs1)' in pattern.arg:
+                        self.ctx.writeln(format_string % (obj_name, prop.name, "'cs1'"))
                         return
                     elif pattern.arg == '(\d+)|(\d+\-\d+)':
                         self.ctx.writeln(format_string % (obj_name, prop.name, "'123'"))
@@ -424,6 +425,25 @@ class TestCasePrinter(object):
                     elif pattern.arg == '([a-zA-Z0-9_]*\d+/){1,2}([a-zA-Z0-9_]*\d+)':
                         self.ctx.writeln(format_string % (obj_name, prop.name, "'a1/a2'"))
                         return
+                    elif '(kbytes)' in pattern.arg:
+                        self.ctx.writeln(format_string % (obj_name, prop.name, "'kbytes'"))
+                        return
+                    elif '(kbps)' in pattern.arg:
+                        self.ctx.writeln(format_string % (obj_name, prop.name, "'kbps'"))
+                        return
+                    elif '(udp)' in pattern.arg:
+                        self.ctx.writeln(format_string % (obj_name, prop.name, "'udp'"))
+                        return
+                    elif '(PBR)' in pattern.arg:
+                        self.ctx.writeln(format_string % (obj_name, prop.name, "'PBR'"))
+                        return
+                    elif '[0-9a-fA-F]{4}(\.[0-9a-fA-F]{4}){2}' == pattern.arg:
+                        self.ctx.writeln(format_string % (obj_name, prop.name, "'00ad.5543.6543'"))
+                        return
+                    elif '[0-9a-fA-F]{2}(:[0-9a-fA-F]{2}){5}' == pattern.arg:
+                        self.ctx.writeln(format_string % (obj_name, prop.name, "'00:0a:95:9d:68:16'"))
+                        return
+
                 if prop.name == 'masklength_range':
                     self.ctx.writeln(format_string % (obj_name, prop.name, "'1..2'"))
                 elif 'address' in prop.stmt.search_one('type').arg and 'ip' in prop.stmt.search_one('type').arg:
@@ -431,12 +451,12 @@ class TestCasePrinter(object):
                 elif 'domain' in prop.stmt.search_one('type').arg and 'domain' in prop.stmt.search_one('type').arg:
                     self.ctx.writeln(format_string % (obj_name, prop.name, "'example.com'"))
                 else:
-#print prop.stmt.search_one('type').arg
-#                    if pattern is not None:
-#                        print pattern.arg, prop.name
+                    logger.info(prop.stmt.search_one('type').arg)
+                    if pattern is not None:
+                        logger.info(pattern.arg + ' : ' + prop.name)
                     self.ctx.writeln("#%s.%s = %s" % (obj_name, prop.name, "'Hello'"))
             else:
-#                print prop.name, type_spec.arg
+                logger.info(prop.name + ' : ' + type_spec.arg)
                 self.ctx.writeln('#%s.%s = None' % (obj_name, prop.name))
 
     def _get_union_type_spec(self, type_stmt):
@@ -469,7 +489,8 @@ class TestCasePrinter(object):
     def _print_crud_read_test_operation(self, obj_name, clazz):
         self.ctx.bline()
         self.ctx.writeln('# READ')
-        self._print_class_instance(clazz, clazz.get_key_props(), suffix='_read')
+
+        self._print_class_instance(clazz, clazz.get_key_props() + self._get_min_elements_leafs(clazz), suffix='_read')
         self.ctx.writeln('print "Reading test %s_read"' % obj_name)
         self.ctx.writeln('%s_read_output = self.crud.read(self.ncc, %s_read)' % (obj_name, obj_name))
         self.ctx.writeln('#self.assertEqual(is_equal(%s, %s_read_output), True)' % (obj_name, obj_name))
@@ -477,9 +498,16 @@ class TestCasePrinter(object):
     def _print_crud_delete_operation(self, obj_name, clazz):
         self.ctx.bline()
         self.ctx.writeln('# DELETE')
-        self._print_class_instance(clazz, clazz.get_key_props(), suffix='_delete')
+        self._print_class_instance(clazz, clazz.get_key_props() + self._get_min_elements_leafs(clazz), suffix='_delete')
         self.ctx.writeln('print "Deleting test %s_delete"' % obj_name)
         self.ctx.writeln('self.crud.delete(self.ncc, %s_delete)' % (obj_name))
+
+    def _get_min_elements_leafs(self, clazz):
+        min_elements_leafs = []
+        for prop in clazz.properties():
+            if prop.min_elements is not None:
+                min_elements_leafs.append(prop)
+        return min_elements_leafs
 
 
 def get_obj_name(clazz):
@@ -508,3 +536,4 @@ def generate_string_of_size(size):
         return 'H'
     else:
         return 'Hello' + ''.join([str(x % 10) for x in range(size - len('Hello'))])
+
