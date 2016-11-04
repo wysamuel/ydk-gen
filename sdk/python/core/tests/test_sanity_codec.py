@@ -21,8 +21,8 @@ from __future__ import absolute_import
 import unittest
 from compare import is_equal
 
-from ydk.models import ydktest_sanity as ysanity
-from ydk.models import oc_pattern
+from ydk.models.ydktest import ydktest_sanity as ysanity
+from ydk.models.ydktest import oc_pattern
 from ydk.providers import CodecServiceProvider
 from ydk.services import CodecService
 from ydk.errors import YPYServiceError

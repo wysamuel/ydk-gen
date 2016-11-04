@@ -106,17 +106,18 @@ function py_sanity_ydktest_gen {
     cd $YDKGEN_HOME && source gen_env/bin/activate
 
     print_msg "py_sanity_ydktest_gen: grouping as class"
-    run_test generate.py --profile profiles/test/ydktest.json --python --groupings-as-class
+    run_test generate.py --bundle profiles/test/ydktest.json --python --groupings-as-class
 
     print_msg "py_sanity_ydktest_gen: grouping expansion, generate documentation"
-    run_test generate.py --profile profiles/test/ydktest.json --python --generate-doc
+    run_test generate.py --bundle profiles/test/ydktest.json --python --generate-doc
 }
 
 function py_sanity_ydktest_install {
     print_msg "py_sanity_ydktest_install"
 
     cd $YDKGEN_HOME && source test_env/bin/activate
-    pip install gen-api/python/dist/ydk*.tar.gz
+    pip install gen-api/python/ydk/dist/ydk*.tar.gz
+    pip install gen-api/python/ydktest-bundle/dist/ydk*.tar.gz
 }
 
 function py_sanity_ydktest_test {
@@ -180,7 +181,8 @@ function py_sanity_deviation_ydktest_gen {
 
     rm -rf gen-api/python/*
     cd $YDKGEN_HOME && source gen_env/bin/activate
-    run_test_no_coverage generate.py --profile profiles/test/ydktest.json --python
+    run_test_no_coverage generate.py --core
+    run_test_no_coverage generate.py --bundle profiles/test/ydktest.json --python
 }
 
 function py_sanity_deviation_ydktest_install {
@@ -202,14 +204,16 @@ function py_sanity_deviation_bgp_gen {
 
     rm -rf gen-api/python/*
     cd $YDKGEN_HOME && source gen_env/bin/activate
-    run_test_no_coverage generate.py --profile profiles/test/deviation.json --verbose
+    run_test_no_coverage generate.py --bundle profiles/test/deviation.json --verbose
 }
 
 function py_sanity_deviation_bgp_insall {
     print_msg "py_sanity_deviation_bgp_install"
 
     cd $YDKGEN_HOME && source test_env/bin/activate
-    pip uninstall ydk -y && pip install gen-api/python/dist/*.tar.gz
+    pip uninstall ydk ydk-models-ydktest -y
+    pip install gen-api/python/ydk/dist/*.tar.gz
+    pip install gen-api/python/ydktest-bundle/dist/*.tar.gz
 }
 
 function py_sanity_deviation_bgp_test {
