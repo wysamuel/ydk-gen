@@ -37,9 +37,9 @@ namespace ydk {
 
 class Entity;
 
-path::DataNode* get_data_node_from_entity(Entity & entity, const path::RootSchemaNode & root);
+std::unique_ptr<path::DataNode> get_data_node_from_entity(Entity & entity, const path::RootSchemaNode & root);
 
-void get_entity_from_data_node(path::DataNode * node, Entity* entity);
+void get_entity_from_data_node(path::DataNode & node, Entity & entity);
 
 }
 #endif /* WALKER_HPP */

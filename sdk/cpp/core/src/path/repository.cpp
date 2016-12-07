@@ -65,10 +65,132 @@ void libyang_log_callback(LY_LOG_LEVEL level, const char *msg, const char *path)
 			break;
 	}
 }
-}
+
+extern "C" void cpp_free_data(void *model_data)
+{
+	delete [] static_cast<char*>(model_data);
 }
 
-ydk::path::Repository::Repository()
+extern "C" void c_free_data(void *model_data)
+{
+	std::free(model_data);
+}
+
+void sink_to_file(const std::string& filename, const std::string& contents)
+{
+	std::ofstream sink {filename, std::ios::binary};
+	if (sink.is_open()) {
+		sink << contents ;
+		sink.close();
+	} else {
+		BOOST_LOG_TRIVIAL(debug) << "Cannot sink to file " << filename;
+	}
+}
+
+extern "C" char* get_module_callback(const char* module_name, const char* module_rev, const char *submod_name, const char *sub_rev,
+							   void* user_data, LYS_INFORMAT* format, void (**free_module_data)(void *model_data))
+{
+	BOOST_LOG_TRIVIAL(trace) << "Getting module " << module_name <<" submodule "<<(submod_name?submod_name:"none");
+
+	if(user_data != nullptr){
+		ModelProvider::Format m_format = ModelProvider::Format::YANG;
+		*format = LYS_IN_YANG;
+		auto repo = reinterpret_cast<const Repository*>(user_data);
+
+		//first check our directory for a file of the form <module-module_name>@<module_rev-date>.yang
+		BOOST_LOG_TRIVIAL(trace) << "Looking for file in folder: " << repo->path.string();
+		std::string yang_file_path_str{repo->path.string()};
+		std::string yang_file_path_no_revision_str{repo->path.string()};
+		yang_file_path_str += '/';
+		yang_file_path_str += (submod_name?submod_name:module_name);
+		yang_file_path_no_revision_str += yang_file_path_str;
+		if(module_rev){
+			yang_file_path_str += "@";
+			yang_file_path_str += module_rev;
+		}
+		else if(sub_rev){
+			yang_file_path_str += "@";
+			yang_file_path_str += sub_rev;
+		}
+		yang_file_path_str += ".yang";
+		BOOST_LOG_TRIVIAL(trace) << "Opening file " << yang_file_path_str;
+
+		fs::path yang_file_path{yang_file_path_str};
+		fs::path yang_file_path_no_revision{yang_file_path_no_revision_str};
+		BOOST_LOG_TRIVIAL(trace) << "Path found with rev: " << fs::is_regular_file(yang_file_path) << ". Path without rev: " << fs::is_regular_file(yang_file_path_no_revision);
+		if(fs::is_regular_file(yang_file_path) || fs::is_regular_file(yang_file_path_no_revision)) {
+			//open the file read the data and return it
+			std::string model_data {""};
+			std::ifstream yang_file {yang_file_path.string()};
+			if(yang_file.is_open()) {
+				std::string line;
+				while(std::getline(yang_file, line)){
+					model_data+=line;
+					model_data+='\n';
+				}
+
+				yang_file.close();
+
+				*free_module_data = c_free_data;
+				char *enlarged_data = nullptr;
+				/* enlarge data by 2 bytes for flex */
+				auto data = model_data.c_str();
+				auto len = std::strlen(data);
+				enlarged_data = static_cast<char*>(std::malloc((len + 2) * sizeof *enlarged_data));
+				if (!enlarged_data) {
+					BOOST_THROW_EXCEPTION(std::bad_alloc{});
+				}
+				memcpy(enlarged_data, data, len);
+				enlarged_data[len] = enlarged_data[len + 1] = '\0';
+				return enlarged_data;
+			} else {
+				BOOST_LOG_TRIVIAL(error) << "Cannot open file " << yang_file_path_str;
+				BOOST_THROW_EXCEPTION(YCPPIllegalStateError("Cannot open file"));
+			}
+
+		}
+
+
+		for(auto model_provider : repo->get_model_providers()) {
+			std::string model_data{};
+			if(submod_name)
+			{
+				BOOST_LOG_TRIVIAL(trace) << "Getting submodule using get-schema " << submod_name;
+				model_data = model_provider->get_model(submod_name, sub_rev != nullptr ? sub_rev : "", m_format);
+			}
+			else
+			{
+				BOOST_LOG_TRIVIAL(trace) << "Getting module using get-schema " << module_name;
+				model_data = model_provider->get_model(module_name, module_rev != nullptr ? module_rev : "", m_format);
+			}
+			if(!model_data.empty()){
+
+				sink_to_file(yang_file_path_str, model_data);
+				*free_module_data = c_free_data;
+				char *enlarged_data = nullptr;
+				/* enlarge data by 2 bytes for flex */
+				auto data = model_data.c_str();
+				auto len = std::strlen(data);
+				enlarged_data = static_cast<char*>(std::malloc((len + 2) * sizeof *enlarged_data));
+				if (!enlarged_data) {
+					BOOST_THROW_EXCEPTION(std::bad_alloc{});
+				}
+				memcpy(enlarged_data, data, len);
+				enlarged_data[len] = enlarged_data[len + 1] = '\0';
+				return enlarged_data;
+			} else {
+				BOOST_LOG_TRIVIAL(trace) << "Cannot find model with module_name:- " << module_name << " module_rev:-" << (module_rev !=nullptr ? module_rev : "");
+//                        BOOST_THROW_EXCEPTION(YCPPIllegalStateError{"Cannot find model"});
+				return {};
+			}
+		}
+	}
+	BOOST_LOG_TRIVIAL(trace) << "Cannot find model with module_name:- " << module_name;
+//            BOOST_THROW_EXCEPTION(YCPPIllegalStateError{"Cannot find model"});
+	return {};
+}
+
+Repository::Repository()
   : using_temp_directory(true)
 {
     path = fs::temp_directory_path();
@@ -77,7 +199,7 @@ ydk::path::Repository::Repository()
 }
 
 
-ydk::path::Repository::Repository(const std::string& search_dir)
+Repository::Repository(const std::string& search_dir)
   : path{search_dir}, using_temp_directory(false)
 {
     if(!fs::exists(path) || !fs::is_directory(path)) {
@@ -89,139 +211,8 @@ ydk::path::Repository::Repository(const std::string& search_dir)
     ly_set_log_clb(libyang_log_callback, 1);
 }
 
-
-namespace ydk {
-    namespace path {
-
-        extern "C" void cpp_free_data(void *model_data)
-        {
-            delete [] static_cast<char*>(model_data);
-        }
-
-        extern "C" void c_free_data(void *model_data)
-        {
-            std::free(model_data);
-        }
-
-        void sink_to_file(const std::string& filename, const std::string& contents)
-        {
-            std::ofstream sink {filename, std::ios::binary};
-            if (sink.is_open()) {
-                sink << contents ;
-                sink.close();
-            } else {
-                BOOST_LOG_TRIVIAL(debug) << "Cannot sink to file " << filename;
-            }
-        }
-
-        extern "C" char* get_module_callback(const char* module_name, const char* module_rev, const char *submod_name, const char *sub_rev,
-        							   void* user_data, LYS_INFORMAT* format, void (**free_module_data)(void *model_data))
-        {
-            BOOST_LOG_TRIVIAL(trace) << "Getting module " << module_name <<" submodule "<<(submod_name?submod_name:"none");
-
-            if(user_data != nullptr){
-                ModelProvider::Format m_format = ModelProvider::Format::YANG;
-                *format = LYS_IN_YANG;
-                auto repo = reinterpret_cast<const Repository*>(user_data);
-
-                //first check our directory for a file of the form <module-module_name>@<module_rev-date>.yang
-                BOOST_LOG_TRIVIAL(trace) << "Looking for file in folder: " << repo->path.string();
-                std::string yang_file_path_str{repo->path.string()};
-                std::string yang_file_path_no_revision_str{repo->path.string()};
-                yang_file_path_str += '/';
-                yang_file_path_str += (submod_name?submod_name:module_name);
-                yang_file_path_no_revision_str += yang_file_path_str;
-                if(module_rev){
-                    yang_file_path_str += "@";
-                    yang_file_path_str += module_rev;
-                }
-                else if(sub_rev){
-                    yang_file_path_str += "@";
-                    yang_file_path_str += sub_rev;
-                }
-                yang_file_path_str += ".yang";
-                BOOST_LOG_TRIVIAL(trace) << "Opening file " << yang_file_path_str;
-
-                fs::path yang_file_path{yang_file_path_str};
-                fs::path yang_file_path_no_revision{yang_file_path_no_revision_str};
-                BOOST_LOG_TRIVIAL(trace) << "Path found with rev: " << fs::is_regular_file(yang_file_path) << ". Path without rev: " << fs::is_regular_file(yang_file_path_no_revision);
-                if(fs::is_regular_file(yang_file_path) || fs::is_regular_file(yang_file_path_no_revision)) {
-                    //open the file read the data and return it
-                    std::string model_data {""};
-                    std::ifstream yang_file {yang_file_path.string()};
-                    if(yang_file.is_open()) {
-                        std::string line;
-                        while(std::getline(yang_file, line)){
-                            model_data+=line;
-                            model_data+='\n';
-                        }
-
-                        yang_file.close();
-
-                        *free_module_data = c_free_data;
-                        char *enlarged_data = nullptr;
-                        /* enlarge data by 2 bytes for flex */
-                        auto data = model_data.c_str();
-                        auto len = std::strlen(data);
-                        enlarged_data = static_cast<char*>(std::malloc((len + 2) * sizeof *enlarged_data));
-                        if (!enlarged_data) {
-                            BOOST_THROW_EXCEPTION(std::bad_alloc{});
-                        }
-                        memcpy(enlarged_data, data, len);
-                        enlarged_data[len] = enlarged_data[len + 1] = '\0';
-                        return enlarged_data;
-                    } else {
-                        BOOST_LOG_TRIVIAL(error) << "Cannot open file " << yang_file_path_str;
-                        BOOST_THROW_EXCEPTION(YCPPIllegalStateError("Cannot open file"));
-                    }
-
-                }
-
-
-                for(auto model_provider : repo->get_model_providers()) {
-                	std::string model_data{};
-                	if(submod_name)
-                	{
-                		BOOST_LOG_TRIVIAL(trace) << "Getting submodule using get-schema " << submod_name;
-                		model_data = model_provider->get_model(submod_name, sub_rev != nullptr ? sub_rev : "", m_format);
-                	}
-                	else
-                	{
-                		BOOST_LOG_TRIVIAL(trace) << "Getting module using get-schema " << module_name;
-                		model_data = model_provider->get_model(module_name, module_rev != nullptr ? module_rev : "", m_format);
-                	}
-                    if(!model_data.empty()){
-
-                        sink_to_file(yang_file_path_str, model_data);
-                        *free_module_data = c_free_data;
-                        char *enlarged_data = nullptr;
-                        /* enlarge data by 2 bytes for flex */
-                        auto data = model_data.c_str();
-                        auto len = std::strlen(data);
-                        enlarged_data = static_cast<char*>(std::malloc((len + 2) * sizeof *enlarged_data));
-                        if (!enlarged_data) {
-                            BOOST_THROW_EXCEPTION(std::bad_alloc{});
-                        }
-                        memcpy(enlarged_data, data, len);
-                        enlarged_data[len] = enlarged_data[len + 1] = '\0';
-                        return enlarged_data;
-                    } else {
-                        BOOST_LOG_TRIVIAL(trace) << "Cannot find model with module_name:- " << module_name << " module_rev:-" << (module_rev !=nullptr ? module_rev : "");
-//                        BOOST_THROW_EXCEPTION(YCPPIllegalStateError{"Cannot find model"});
-                        return {};
-                    }
-                }
-            }
-            BOOST_LOG_TRIVIAL(trace) << "Cannot find model with module_name:- " << module_name;
-//            BOOST_THROW_EXCEPTION(YCPPIllegalStateError{"Cannot find model"});
-            return {};
-        }
-    }
-
-}
-
-ydk::path::RootSchemaNode*
-ydk::path::Repository::create_root_schema(const std::vector<path::Capability> & capabilities)
+std::unique_ptr<RootSchemaNode>
+Repository::create_root_schema(const std::vector<path::Capability> & capabilities)
 {
 	if(using_temp_directory)
 	{
@@ -270,7 +261,7 @@ ydk::path::Repository::create_root_schema(const std::vector<path::Capability> & 
 
     ly_verb(LY_LLVRB); // enable libyang logging after model download has completed
     RootSchemaNodeImpl* rs = new RootSchemaNodeImpl{ctx};
-    return rs;
+    return std::unique_ptr<RootSchemaNode>(rs);
 }
 
 ///
@@ -310,7 +301,7 @@ ydk::path::Repository::remove_model_provider(ydk::path::ModelProvider* model_pro
 ///
 /// @return vector of ModelProvider's
 ///
-std::vector<ydk::path::ModelProvider*> ydk::path::Repository::get_model_providers() const
+const std::vector<ydk::path::ModelProvider*> & ydk::path::Repository::get_model_providers() const
 {
     return model_providers;
 }
@@ -318,3 +309,5 @@ std::vector<ydk::path::ModelProvider*> ydk::path::Repository::get_model_provider
 
 ////////////////////////////////////////////////////////////////////////
 
+}
+}

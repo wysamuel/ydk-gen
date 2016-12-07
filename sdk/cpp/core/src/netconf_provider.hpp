@@ -26,25 +26,28 @@ namespace ydk {
 
 class NetconfClient;
 
-class NetconfServiceProvider : public path::ServiceProvider {
+class NetconfServiceProvider : public path::ServiceProvider
+{
 public:
         NetconfServiceProvider(path::Repository & repo,
                                 std::string address,
                                std::string username,
                                std::string password,
                                int port);
+
         NetconfServiceProvider(std::string address,
                                std::string username,
                                std::string password,
                                int port);
         ~NetconfServiceProvider();
-        path::RootSchemaNode* get_root_schema() const;
-        path::DataNode* handle_netconf_operation(path::Rpc* ydk_rpc) const;
-        path::DataNode* invoke(path::Rpc* rpc) const;
+
+        path::RootSchemaNode & get_root_schema() const;
+        std::unique_ptr<path::DataNode> invoke(path::Rpc & rpc) const;
 
 private:
-        path::DataNode* handle_edit(path::Rpc* rpc, path::Annotation ann) const;
-        path::DataNode* handle_read(path::Rpc* rpc) const;
+        std::unique_ptr<path::DataNode> handle_edit(path::Rpc & rpc, path::Annotation ann) const;
+        std::unique_ptr<path::DataNode> handle_read(path::Rpc & rpc) const;
+        std::unique_ptr<path::DataNode> handle_netconf_operation(path::Rpc & ydk_rpc) const;
         void initialize();
 
 private:

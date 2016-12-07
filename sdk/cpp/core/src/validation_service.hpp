@@ -43,7 +43,6 @@ class ServiceProvider;
 class ValidationService {
 
   public:
-
     ///
     /// @brief Options for validation.
     ///
@@ -57,12 +56,10 @@ class ValidationService {
         EDIT_CONFIG // Edit validation. Checks on the values of leafs etc
     };
 
-    ValidationService()
-    {
-    }
-    ~ValidationService(){}
+    ValidationService();
+    ~ValidationService();
 
-    void validate(const ydk::path::ServiceProvider& sp, ydk::Entity& entity, ydk::ValidationService::Option option);
+    void validate(const ydk::path::ServiceProvider& provider, ydk::Entity& entity, ydk::ValidationService::Option option);
 };
 
 

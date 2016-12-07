@@ -41,37 +41,38 @@ using namespace std;
 namespace ydk
 {
 
-static void populate_data_node(Entity & entity, path::DataNode* data_node);
+static void populate_data_node(Entity & entity, path::DataNode & data_node);
 static EntityPath get_top_entity_path(Entity & entity);
-static void walk_children(Entity & entity, path::DataNode* data_node);
-static void populate_name_values(path::DataNode* parent_data_node, EntityPath & path);
-static bool data_node_is_leaf(path::DataNode* data_node);
-static bool data_node_is_list(path::DataNode* data_node);
-static string get_segment_path(const string & path);
+static void walk_children(Entity & entity, path::DataNode & data_node);
+static void populate_name_values(path::DataNode & parent_data_node, EntityPath & path);
+static path::DataNode & create_child(Entity & entity, path::DataNode & parent_data_node);
 static void add_annotation_to_datanode(const Entity & entity, path::DataNode & data_node);
 static void add_annotation_to_datanode(const std::pair<std::string, LeafData> & name_value, path::DataNode & data_node);
 static path::Annotation get_annotation(EditOperation operation);
 
+static bool data_node_is_leaf(path::DataNode & data_node);
+static bool data_node_is_list(path::DataNode & data_node);
+static string get_segment_path(const string & path);
 
 //////////////////////////////////////////////////////////////////////////
 // DataNode* from Entity
 //////////////////////////////////////////////////////////////////////////
-path::DataNode* get_data_node_from_entity(Entity & entity, const ydk::path::RootSchemaNode & root_schema)
+unique_ptr<path::DataNode> get_data_node_from_entity(Entity & entity, const ydk::path::RootSchemaNode & root_schema)
 {
 	EntityPath root_path = get_top_entity_path(entity);
-	auto root_data_node = root_schema.create(root_path.path);
+	unique_ptr<path::DataNode> root_data_node = root_schema.create(root_path.path);
 	if(is_set(entity.operation))
 	{
 		add_annotation_to_datanode(entity, *root_data_node);
 	}
 
 	BOOST_LOG_TRIVIAL(trace) <<"Root entity: "<<root_path.path;
-	populate_name_values(root_data_node, root_path);
-	walk_children(entity, root_data_node);
+	populate_name_values(*root_data_node, root_path);
+	walk_children(entity, *root_data_node);
 	return root_data_node;
 }
 
-static void walk_children(Entity & entity, path::DataNode* data_node)
+static void walk_children(Entity & entity, path::DataNode & data_node)
 {
 	std::map<string, Entity*> & children = entity.get_children();
 	BOOST_LOG_TRIVIAL(trace) <<"Children count for: " <<entity.get_entity_path(entity.parent).path<<": "<<children.size();
@@ -86,53 +87,55 @@ static void walk_children(Entity & entity, path::DataNode* data_node)
 	}
 }
 
-static void populate_data_node(Entity & entity, path::DataNode* parent_data_node)
+static path::DataNode & create_child(Entity & entity, path::DataNode & parent_data_node)
 {
 	EntityPath path = entity.get_entity_path(entity.parent);
-	path::DataNode* data_node = nullptr;
+
 	if(entity.has_data())
 	{
-		data_node = parent_data_node->create(path.path);
+		return parent_data_node.create(path.path);
 	}
 	else
 	{
-		data_node = parent_data_node->create_filter(entity.yang_name);
+		return parent_data_node.create_filter(entity.yang_name);
 	}
+}
+
+static void populate_data_node(Entity & entity, path::DataNode & parent_data_node)
+{
+	path::DataNode & data_node = create_child(entity, parent_data_node);
+	EntityPath path = entity.get_entity_path(entity.parent);
 
 	if(is_set(entity.operation))
 	{
-		add_annotation_to_datanode(entity, *data_node);
+		add_annotation_to_datanode(entity, data_node);
 	}
 
 	populate_name_values(data_node, path);
 	walk_children(entity, data_node);
 }
 
-static void populate_name_values(path::DataNode* data_node, EntityPath & path)
+static void populate_name_values(path::DataNode & data_node, EntityPath & path)
 {
 	BOOST_LOG_TRIVIAL(trace) <<"Leaf count: "<<path.value_paths.size();
 	for(const std::pair<std::string, LeafData> & name_value : path.value_paths)
 	{
-		path::DataNode* result = nullptr;
 		LeafData leaf_data = name_value.second;
-		BOOST_LOG_TRIVIAL(trace)  <<"Creating child "<<name_value.first<<" of "<<data_node->path()
+		if(!leaf_data.is_set)
+		{
+			BOOST_THROW_EXCEPTION(YCPPInvalidArgumentError{"Leaf value has to be specified for " + name_value.first});
+		}
+
+		path::DataNode & result = data_node.create(name_value.first, leaf_data.value);
+		BOOST_LOG_TRIVIAL(trace)  <<"Creating child "<<name_value.first<<" of "<<data_node.path()
 				<<" with value: \""<<leaf_data.value<<"\", is_set: "<<leaf_data.is_set;
 
-		if(leaf_data.is_set)
-		{
-			result = data_node->create(name_value.first, leaf_data.value);
-		}
-		else
-		{
-			result = data_node->create_filter(name_value.first, leaf_data.value);
-		}
 
 		if(is_set(leaf_data.operation))
 		{
-			add_annotation_to_datanode(name_value, *result);
+			add_annotation_to_datanode(name_value, result);
 		}
 
-		BOOST_LOG_TRIVIAL(trace)  << "Result: "<<(result?"success":"failure");
 	}
 }
 
@@ -172,51 +175,48 @@ static path::Annotation get_annotation(EditOperation operation)
 //////////////////////////////////////////////////////////////////////////
 // Entity from DataNode*
 //////////////////////////////////////////////////////////////////////////
-void get_entity_from_data_node(path::DataNode * node, Entity* entity)
+void get_entity_from_data_node(path::DataNode & node, Entity & entity)
 {
-	if (entity == nullptr || node == nullptr)
-		return;
-
-	for(path::DataNode* child_data_node:node->children())
+	for(path::DataNode* child_data_node:node.children())
 	{
-		std::string child_name = child_data_node->schema()->statement().arg;
-		if(data_node_is_leaf(child_data_node))
+		std::string child_name = child_data_node->schema().statement().arg;
+		if(data_node_is_leaf(*child_data_node))
 		{
 			BOOST_LOG_TRIVIAL(trace)  << "Creating leaf "<<child_name << " of value '"
-					<< child_data_node->get() <<"' in parent " << node->path();
-			entity->set_value(child_name, child_data_node->get());
+					<< child_data_node->get() <<"' in parent " << node.path();
+			entity.set_value(child_name, child_data_node->get());
 		}
 		else
 		{
-			BOOST_LOG_TRIVIAL(trace)  << "Going into child "<<child_name <<" in parent " << node->path();
+			BOOST_LOG_TRIVIAL(trace)  << "Going into child "<<child_name <<" in parent " << node.path();
 			Entity * child_entity;
-			if(data_node_is_list(child_data_node))
+			if(data_node_is_list(*child_data_node))
 			{
-				child_entity = entity->get_child_by_name(child_name, get_segment_path(child_data_node->path()));
+				child_entity = entity.get_child_by_name(child_name, get_segment_path(child_data_node->path()));
 			}
 			else
 			{
-				child_entity = entity->get_child_by_name(child_name);
+				child_entity = entity.get_child_by_name(child_name);
 			}
 
 			if(child_entity == nullptr)
 			{
-				BOOST_LOG_TRIVIAL(error)  << "Couldn't fetch child entity "<<child_name<< " in parent "<<node->path() <<"!";
+				BOOST_LOG_TRIVIAL(error)  << "Couldn't fetch child entity "<<child_name<< " in parent "<<node.path() <<"!";
 			}
-			get_entity_from_data_node(child_data_node, child_entity);
+			get_entity_from_data_node(*child_data_node, (*child_entity));
 		}
 	}
 }
 
-static bool data_node_is_leaf(path::DataNode* data_node)
+static bool data_node_is_leaf(path::DataNode & data_node)
 {
-	return (data_node->schema()->statement().keyword == "leaf"
-			|| data_node->schema()->statement().keyword == "leaf-list");
+	return (data_node.schema().statement().keyword == "leaf"
+			|| data_node.schema().statement().keyword == "leaf-list");
 }
 
-static bool data_node_is_list(path::DataNode* data_node)
+static bool data_node_is_list(path::DataNode & data_node)
 {
-	return (data_node->schema()->statement().keyword == "list");
+	return (data_node.schema().statement().keyword == "list");
 }
 
 static string get_segment_path(const string & path)

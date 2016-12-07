@@ -55,6 +55,7 @@ ydk::path::segmentalize(const std::string& path)
     return output;
 }
 
+
 ////////////////////////////////////////////////////////////////////
 /// ServiceProvider
 ///////////////////////////////////////////////////////////////////
@@ -65,10 +66,16 @@ ydk::path::ServiceProvider::~ServiceProvider()
 
 
 //////////////////////////////////////////////////////////////////////////
+// class ydk::path::ValidationService
+//////////////////////////////////////////////////////////////////////////
+ydk::path::ValidationService::ValidationService()
+{
+}
 
-//////////////////////////////////////////////////////////////////////////
-// class ydk::ValidationService
-//////////////////////////////////////////////////////////////////////////
+ydk::path::ValidationService::~ValidationService()
+{
+}
+
 void
 ydk::path::ValidationService::validate(const ydk::path::DataNode & dn, ydk::ValidationService::Option option)
 {
@@ -98,24 +105,22 @@ ydk::path::ValidationService::validate(const ydk::path::DataNode & dn, ydk::Vali
     BOOST_LOG_TRIVIAL(debug) << "Validation called on " << dn.path() << " with option " << option_str;
 
     //what kind of a DataNode is this
-    const ydk::path::DataNodeImpl & dn_impl = dynamic_cast<const ydk::path::DataNodeImpl&>(dn);
-	struct lyd_node* lynode = dn_impl.m_node;
-	int rc = lyd_validate(&lynode,ly_option, NULL);
-	if(rc) {
+    const ydk::path::DataNodeImpl & dn_impl = dynamic_cast<const ydk::path::DataNodeImpl &>(dn);
+	lyd_node* lynode = dn_impl.m_node;
+	int rc = lyd_validate(&lynode, ly_option, NULL);
+	if(rc)
+	{
 		BOOST_LOG_TRIVIAL(error) << "Data validation failed";
 		BOOST_THROW_EXCEPTION(ydk::path::YCPPDataValidationError{});
 	}
-
 }
 
 
-///////////////////////////////////////////////////////////////////////////
-
 //////////////////////////////////////////////////////////////////////////
-// class ydk::CodecService
+// class ydk::path::CodecService
 //////////////////////////////////////////////////////////////////////////
 std::string
-ydk::path::CodecService::encode(const ydk::path::DataNode* dn, ydk::path::CodecService::Format format, bool pretty)
+ydk::path::CodecService::encode(const ydk::path::DataNode & dn, ydk::path::CodecService::Format format, bool pretty)
 {
     std::string ret{};
 
@@ -127,9 +132,9 @@ ydk::path::CodecService::encode(const ydk::path::DataNode* dn, ydk::path::CodecS
         scheme = LYD_JSON;
     }
 
-    struct lyd_node* m_node = nullptr;
+    lyd_node* m_node = nullptr;
 
-    const DataNodeImpl* impl = dynamic_cast<const DataNodeImpl *>(dn);
+    const DataNodeImpl* impl = dynamic_cast<const DataNodeImpl *>(&dn);
     if( !impl) {
         BOOST_LOG_TRIVIAL(error) << "DataNode is nullptr";
         BOOST_THROW_EXCEPTION(YCPPCoreError{"DataNode is null"});
@@ -158,8 +163,8 @@ ydk::path::CodecService::encode(const ydk::path::DataNode* dn, ydk::path::CodecS
 
 }
 
-ydk::path::DataNode*
-ydk::path::CodecService::decode(const RootSchemaNode* root_schema, const std::string& buffer, CodecService::Format format)
+std::unique_ptr<ydk::path::DataNode>
+ydk::path::CodecService::decode(const RootSchemaNode & root_schema, const std::string& buffer, CodecService::Format format)
 {
     LYD_FORMAT scheme = LYD_XML;
     if (format == CodecService::Format::JSON)
@@ -167,14 +172,9 @@ ydk::path::CodecService::decode(const RootSchemaNode* root_schema, const std::st
         scheme = LYD_JSON;
     }
 
-    const RootSchemaNodeImpl* rs_impl = dynamic_cast<const RootSchemaNodeImpl*>(root_schema);
-    if(!rs_impl)
-    {
-        BOOST_LOG_TRIVIAL(error) << "Root Schema Node is nullptr";
-        BOOST_THROW_EXCEPTION(YCPPCoreError{"Root Schema Node is null"});
-    }
+    const RootSchemaNodeImpl & rs_impl = dynamic_cast<const RootSchemaNodeImpl &>(root_schema);
 
-    struct lyd_node *root = lyd_parse_mem(rs_impl->m_ctx, buffer.c_str(), scheme, LYD_OPT_TRUSTED |  LYD_OPT_GET);
+    lyd_node *root = lyd_parse_mem(rs_impl.m_ctx, buffer.c_str(), scheme, LYD_OPT_TRUSTED |  LYD_OPT_GET);
     if( root == nullptr || ly_errno )
     {
 
@@ -183,17 +183,16 @@ ydk::path::CodecService::decode(const RootSchemaNode* root_schema, const std::st
     }
 
     BOOST_LOG_TRIVIAL(trace) << "Performing decode operation";
-    RootDataImpl* rd = new RootDataImpl{rs_impl, rs_impl->m_ctx, "/"};
+    RootDataImpl* rd = new RootDataImpl{rs_impl, rs_impl.m_ctx, "/"};
     rd->m_node = root;
 
-    struct lyd_node* dnode = root;
+    lyd_node* dnode = rd->m_node;
     do
     {
-        DataNodeImpl* nodeImpl = new DataNodeImpl{rd, dnode};
-        rd->child_map.insert(std::make_pair(root, nodeImpl));
+        rd->child_map.insert(std::make_pair(rd->m_node, std::make_unique<DataNodeImpl>(rd, rd->m_node)));
         dnode = dnode->next;
-    } while(dnode && dnode != nullptr && dnode != root);
+    } while(dnode && dnode != nullptr && dnode != rd->m_node);
 
-    return rd;
+    return std::unique_ptr<ydk::path::DataNode>(rd);
 }
 

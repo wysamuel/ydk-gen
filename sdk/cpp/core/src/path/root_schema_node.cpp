@@ -25,41 +25,45 @@
 #include "path_private.hpp"
 #include <boost/log/trivial.hpp>
 
+lys_node ls;
+ydk::path::SchemaNodeImpl s{nullptr, &ls};
 
-//////////////////////////////////////////////////////////////////////////////
-/// RootSchemaNode
-/////////////////////////////////////////////////////////////////////////////
-ydk::path::RootSchemaNode::~RootSchemaNode()
+namespace ydk
+{
+namespace path
+{
+
+RootSchemaNode::~RootSchemaNode()
 {
 
 }
 
 std::string
-ydk::path::RootSchemaNode::path() const
+RootSchemaNode::path() const
 {
     return "/";
 }
 
-ydk::path::SchemaNode*
-ydk::path::RootSchemaNode::parent() const noexcept
+const SchemaNode&
+RootSchemaNode::parent() const noexcept
 {
-    return nullptr;
+    return s;
 }
 
-const ydk::path::SchemaNode*
-ydk::path::RootSchemaNode::root() const noexcept
+const SchemaNode&
+RootSchemaNode::root() const noexcept
 {
-    return this;
+    return *this;
 }
 
-ydk::path::Statement
-ydk::path::RootSchemaNode::statement() const
+Statement
+RootSchemaNode::statement() const
 {
     return Statement{};
 }
 
 std::vector<ydk::path::Statement>
-ydk::path::RootSchemaNode::keys() const
+RootSchemaNode::keys() const
 {
     return std::vector<Statement>{};
 
@@ -69,21 +73,21 @@ ydk::path::RootSchemaNode::keys() const
 /////////////////////////////////////////////////////////////////////////////////////
 // class RootSchemaNodeImpl
 /////////////////////////////////////////////////////////////////////////////////////
-ydk::path::RootSchemaNodeImpl::RootSchemaNodeImpl(struct ly_ctx* ctx) : m_ctx{ctx}
+RootSchemaNodeImpl::RootSchemaNodeImpl(struct ly_ctx* ctx) : m_ctx{ctx}
 {
     //populate the tree
     uint32_t idx = 0;
     while( auto p = ly_ctx_get_module_iter(ctx, &idx)) {
-        const struct lys_node *last = nullptr;
+        const lys_node *last = nullptr;
         while( auto q = lys_getnext(last, nullptr, p, 0)) {
-            m_children.push_back(std::make_unique<SchemaNodeImpl>(this, const_cast<struct lys_node*>(q)));
+            m_children.push_back(std::make_unique<SchemaNodeImpl>(this, const_cast<lys_node*>(q)));
             last = q;
         }
     }
 
 }
 
-ydk::path::RootSchemaNodeImpl::~RootSchemaNodeImpl()
+RootSchemaNodeImpl::~RootSchemaNodeImpl()
 {
     if(m_ctx){
         ly_ctx_destroy(m_ctx, nullptr);
@@ -91,8 +95,8 @@ ydk::path::RootSchemaNodeImpl::~RootSchemaNodeImpl()
     }
 }
 
-std::vector<ydk::path::SchemaNode*>
-ydk::path::RootSchemaNodeImpl::find(const std::string& path) const
+std::vector<SchemaNode*>
+RootSchemaNodeImpl::find(const std::string& path) const
 {
     if(path.empty()) {
         BOOST_LOG_TRIVIAL(error) << "path is empty";
@@ -110,7 +114,7 @@ ydk::path::RootSchemaNodeImpl::find(const std::string& path) const
     std::string full_path{"/"};
     full_path+=path;
 
-    const struct lys_node* found_node = ly_ctx_get_node(m_ctx, nullptr, full_path.c_str());
+    const lys_node* found_node = ly_ctx_get_node(m_ctx, nullptr, full_path.c_str());
 
     if (found_node){
         auto p = reinterpret_cast<SchemaNode*>(found_node->priv);
@@ -122,59 +126,47 @@ ydk::path::RootSchemaNodeImpl::find(const std::string& path) const
     return ret;
 }
 
-const std::vector<std::unique_ptr<ydk::path::SchemaNode>> &
-ydk::path::RootSchemaNodeImpl::children() const
+const std::vector<std::unique_ptr<SchemaNode>> &
+RootSchemaNodeImpl::children() const
 {
     return m_children;
 }
 
-ydk::path::DataNode*
-ydk::path::RootSchemaNodeImpl::create(const std::string& path) const
+std::unique_ptr<DataNode>
+RootSchemaNodeImpl::create(const std::string& path) const
 {
     return create(path, "");
 }
 
-ydk::path::DataNode*
-ydk::path::RootSchemaNodeImpl::create(const std::string& path, const std::string& value) const
+std::unique_ptr<DataNode>
+RootSchemaNodeImpl::create(const std::string& path, const std::string& value) const
 {
-    RootDataImpl* rd = new RootDataImpl{this, m_ctx, "/"};
+    RootDataImpl* rd = new RootDataImpl{*this, m_ctx, "/"};
 
     if (rd){
-        return rd->create(path, value);
+        return std::unique_ptr<DataNode>(&(rd->create(path, value)));
     }
 
     return nullptr;
 }
 
-ydk::path::DataNode*
-ydk::path::RootSchemaNodeImpl::from_xml(const std::string& xml) const
+
+std::unique_ptr<Rpc>
+RootSchemaNodeImpl::rpc(const std::string& path) const
 {
-    struct lyd_node *root = lyd_parse_mem(m_ctx, xml.c_str(), LYD_XML, 0);
-    RootDataImpl* rd = new RootDataImpl{this, m_ctx, "/"};
-    DataNodeImpl* nodeImpl = new DataNodeImpl{rd,root};
-
-    return nodeImpl;
-
-}
-
-
-
-ydk::path::Rpc*
-ydk::path::RootSchemaNodeImpl::rpc(const std::string& path) const
-{
-    auto c = find(path);
-    if(c.empty()){
+    auto schema_nodes = find(path);
+    if(schema_nodes.empty()){
         BOOST_THROW_EXCEPTION(YCPPInvalidArgumentError{"Path is invalid"});
     }
 
     bool found = false;
-    SchemaNode* rpc_sn = nullptr;
+    SchemaNode* rpc_schema_node = nullptr;
 
-    for(auto item : c) {
-        auto s = item->statement();
+    for(auto schema_node : schema_nodes) {
+        auto s = schema_node->statement();
         if(s.keyword == "rpc"){
             found = true;
-            rpc_sn = item;
+            rpc_schema_node = schema_node;
             break;
         }
     }
@@ -183,11 +175,14 @@ ydk::path::RootSchemaNodeImpl::rpc(const std::string& path) const
         BOOST_LOG_TRIVIAL(error) << "Path " << path << " does not refer to an rpc node.";
         BOOST_THROW_EXCEPTION(YCPPInvalidArgumentError{"Path does not refer to an rpc node"});
     }
-    SchemaNodeImpl* sn = dynamic_cast<SchemaNodeImpl*>(rpc_sn);
+    SchemaNodeImpl* sn = dynamic_cast<SchemaNodeImpl*>(rpc_schema_node);
     if(!sn){
         BOOST_LOG_TRIVIAL(error) << "Schema Node case failed";
         BOOST_THROW_EXCEPTION(YCPPIllegalStateError("Internal error occurred"));
     }
-    return new RpcImpl{sn, m_ctx};
+    return std::make_unique<RpcImpl>(*sn, m_ctx);
 
+}
+
+}
 }

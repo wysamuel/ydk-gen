@@ -25,11 +25,14 @@
 #include "path_private.hpp"
 #include <boost/log/trivial.hpp>
 
-
+namespace ydk
+{
+namespace path
+{
 ///////////////////////////////////////////////////////////////////////////////
 /// SchemaNode
 ///////////////////////////////////////////////////////////////////////////////
-ydk::path::SchemaNode::~SchemaNode()
+SchemaNode::~SchemaNode()
 {
 
 }
@@ -38,33 +41,35 @@ ydk::path::SchemaNode::~SchemaNode()
 /////////////////////////////////////////////////////////////////////
 // ydk::SchemaNodeImpl
 ////////////////////////////////////////////////////////////////////
-ydk::path::SchemaNodeImpl::SchemaNodeImpl(const SchemaNode* parent, struct lys_node* node):m_parent{parent}, m_node{node}, m_children{}
+SchemaNodeImpl::SchemaNodeImpl(const SchemaNode* parent, lys_node* node):m_parent{parent}, m_node{node}, m_children{}
 {
     node->priv = this;
-    if(node->nodetype != LYS_LEAF && node->nodetype != LYS_LEAFLIST) {
+    if(node->nodetype != LYS_LEAF && node->nodetype != LYS_LEAFLIST)
+    {
 
-        const struct lys_node *last = nullptr;
+        const lys_node *last = nullptr;
 
-        while( auto q = lys_getnext(last, node, nullptr, 0)) {
-            m_children.emplace_back(std::make_unique<SchemaNodeImpl>(this,const_cast<struct lys_node*>(q)));
+        while( auto q = lys_getnext(last, node, nullptr, 0))
+        {
+            m_children.emplace_back(std::make_unique<SchemaNodeImpl>(this,const_cast<lys_node*>(q)));
             last = q;
         }
     }
 
 }
 
-ydk::path::SchemaNodeImpl::~SchemaNodeImpl()
+SchemaNodeImpl::~SchemaNodeImpl()
 {
 }
 
 std::string
-ydk::path::SchemaNodeImpl::path() const
+SchemaNodeImpl::path() const
 {
     std::string ret{};
 
     std::vector<std::string> segments;
 
-    struct lys_node* cur_node = m_node;
+    lys_node* cur_node = m_node;
     struct lys_module* module = nullptr;
 
     while(cur_node != nullptr){
@@ -92,8 +97,8 @@ ydk::path::SchemaNodeImpl::path() const
     return ret;
 }
 
-std::vector<ydk::path::SchemaNode*>
-ydk::path::SchemaNodeImpl::find(const std::string& path) const
+std::vector<SchemaNode*>
+SchemaNodeImpl::find(const std::string& path) const
 {
     if(path.empty())
     {
@@ -111,7 +116,7 @@ ydk::path::SchemaNodeImpl::find(const std::string& path) const
     std::vector<SchemaNode*> ret;
     struct ly_ctx* ctx = m_node->module->ctx;
 
-    const struct lys_node* found_node = ly_ctx_get_node(ctx, m_node, path.c_str());
+    const lys_node* found_node = ly_ctx_get_node(ctx, m_node, path.c_str());
 
     if (found_node)
     {
@@ -125,25 +130,25 @@ ydk::path::SchemaNodeImpl::find(const std::string& path) const
     return ret;
 }
 
-const ydk::path::SchemaNode*
-ydk::path::SchemaNodeImpl::parent() const noexcept
+const SchemaNode &
+SchemaNodeImpl::parent() const noexcept
 {
-    return m_parent;
+    return *m_parent;
 }
 
-const std::vector<std::unique_ptr<ydk::path::SchemaNode>> &
-ydk::path::SchemaNodeImpl::children() const
+const std::vector<std::unique_ptr<SchemaNode>> &
+SchemaNodeImpl::children() const
 {
 
     return m_children;
 }
 
-const ydk::path::SchemaNode*
-ydk::path::SchemaNodeImpl::root() const noexcept
+const SchemaNode &
+SchemaNodeImpl::root() const noexcept
 {
     if(m_parent == nullptr)
     {
-	    return this;
+	    return *this;
     }
     else
     {
@@ -151,8 +156,8 @@ ydk::path::SchemaNodeImpl::root() const noexcept
     }
 }
 
-ydk::path::Statement
-ydk::path::SchemaNodeImpl::statement() const
+Statement
+SchemaNodeImpl::statement() const
 {
     Statement s{};
     s.arg = m_node->name;
@@ -216,8 +221,8 @@ ydk::path::SchemaNodeImpl::statement() const
 /// Returns the vector of Statement keys
 /// @return vector of Statement that represent keys
 ///
-std::vector<ydk::path::Statement>
-ydk::path::SchemaNodeImpl::keys() const
+std::vector<Statement>
+SchemaNodeImpl::keys() const
 {
     std::vector<Statement> stmts{};
 
@@ -228,7 +233,7 @@ ydk::path::SchemaNodeImpl::keys() const
             BOOST_LOG_TRIVIAL(error) << "Mismatch in schema";
             BOOST_THROW_EXCEPTION(YCPPIllegalStateError{"Mismatch in schema"});
         }
-        struct lys_node_list *slist = (struct lys_node_list *)m_node;
+        lys_node_list *slist = (lys_node_list *)m_node;
         for(uint8_t i=0; i < slist->keys_size; ++i) {
             SchemaNode* sn = reinterpret_cast<SchemaNode*>(slist->keys[i]->priv);
             if(sn != nullptr){
@@ -240,4 +245,5 @@ ydk::path::SchemaNodeImpl::keys() const
     return stmts;
 }
 
-
+}
+}

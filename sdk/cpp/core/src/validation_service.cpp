@@ -30,17 +30,22 @@
 
 using namespace std;
 
-namespace ydk {
-
-void
-ValidationService::validate(const path::ServiceProvider& sp, Entity& entity,
-                            ValidationService::Option option)
+namespace ydk
 {
-	auto root_schema = sp.get_root_schema();
-	path::DataNode * datanode = get_data_node_from_entity(entity, *root_schema);
-
-	path::ValidationService path_validation_service{};
-    path_validation_service.validate(*datanode, option);
-
+ValidationService::ValidationService()
+{
 }
+
+ValidationService::~ValidationService()
+{
+}
+
+void ValidationService::validate(const path::ServiceProvider& provider, Entity& entity, ValidationService::Option option)
+{
+	path::RootSchemaNode & root_schema = provider.get_root_schema();
+	auto data_node = get_data_node_from_entity(entity, root_schema);
+    ydk::path::ValidationService path_validation_service{};
+    path_validation_service.validate(*data_node, option);
+}
+
 }
