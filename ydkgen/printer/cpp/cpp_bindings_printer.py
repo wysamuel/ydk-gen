@@ -72,7 +72,10 @@ class CppBindingsPrinter(LanguageBindingsPrinter):
     def _print_entity_lookup_files(self, path, packages):
         self.print_file(get_entity_lookup_source_file_name(path),
                         emit_entity_lookup_source,
-                        _EmitArgs(self.ypy_ctx, packages, self.bundle_name))
+                        _EmitArgs(self.ypy_ctx, packages))
+        self.print_file(get_entity_lookup_header_file_name(path),
+                        emit_entity_lookup_header,
+                        _EmitArgs(self.ypy_ctx, packages))
 
     def _print_cpp_rst_doc(self, package):
         if self.ydk_doc_dir is None:
@@ -111,6 +114,10 @@ def get_entity_lookup_source_file_name(path):
     return '%s/generated_entity_lookup.cpp' % (path)
 
 
+def get_entity_lookup_header_file_name(path):
+    return '%s/generated_entity_lookup.hpp' % (path)
+
+
 def get_table_of_contents_file_name(path):
     return '%s/ydk.models.rst' % path
 
@@ -127,8 +134,12 @@ def emit_source(ctx, package, sort_clazz):
     SourcePrinter(ctx, sort_clazz).print_output(package)
 
 
-def emit_entity_lookup_source(ctx, packages, bundle_name):
-    EntityLookUpPrinter(ctx).print_source(packages, bundle_name)
+def emit_entity_lookup_source(ctx, packages):
+    EntityLookUpPrinter(ctx).print_source(packages)
+
+
+def emit_entity_lookup_header(ctx, packages):
+    EntityLookUpPrinter(ctx).print_header(packages)
 
 
 def emit_cpp_doc(ctx, named_element, identity_subclasses):

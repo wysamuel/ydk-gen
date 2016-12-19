@@ -354,7 +354,13 @@ function py_tests {
 function cpp_tests {
     init_env "python" "python"
     cpp_sanity_core
-    cpp_sanity_ydktest
+    #cpp_sanity_ydktest
+    cd $YDKGEN_HOME
+    run_test generate.py --bundle profiles/bundles/ietf_0_1_1.json --cpp
+    cd gen-api/cpp/ietf-bundle/build && sudo make install && cd -
+    run_test generate.py --bundle profiles/bundles/openconfig_0_1_1.json --cpp
+    cd gen-api/cpp/openconfig-bundle/build && sudo make install && cd -
+    run_test generate.py --bundle profiles/bundles/cisco-ios-xr_6_1_1.json --cpp
 }
 
 
@@ -363,7 +369,7 @@ function cpp_tests {
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 cd $DIR/..
 
-py_tests
+#py_tests
 cpp_tests
 cd $YDKGEN_HOME
 print_msg "combining coverage"

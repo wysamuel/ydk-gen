@@ -42,7 +42,9 @@ class SourcePrinter(FilePrinter):
         self.ctx.bline()
         self.ctx.writeln('#include <sstream>')
         self.ctx.writeln('#include <iostream>')
+        self.ctx.writeln('#include "ydk/entity_lookup.hpp"')
         self.ctx.writeln('#include "ydk/entity_util.hpp"')
+        self.ctx.writeln('#include "generated_entity_lookup.hpp"')
         self.ctx.writeln('#include "{0}.hpp"'.format(package.name))
         self.ctx.bline()
         self.ctx.writeln('namespace ydk {')
@@ -59,7 +61,7 @@ class SourcePrinter(FilePrinter):
         self._print_classes([clazz for clazz in package.owned_elements if isinstance(clazz, Class)])
         self.ctx.bline()
         self._print_enums(package)
-        # self._print_bits(package)
+        self._print_augment_method(package)
 
     def _print_classes(self, clazzes):
         sorted_classes = sort_classes_at_same_level(clazzes, self.sort_clazz)
@@ -93,6 +95,32 @@ class SourcePrinter(FilePrinter):
     def _print_class_destructor(self, clazz):
         self.ctx.writeln(clazz.qualified_cpp_name() + '::~' + clazz.name + '()')
         self.ctx.writeln('{')
+        self.ctx.writeln('}')
+        self.ctx.bline()
+
+    def _print_augment_method(self, package):
+        self.ctx.bline()
+        self.ctx.writeln('void augment_' + package.name + '()')
+        self.ctx.writeln('{')
+        self.ctx.lvl_inc()
+        top_entities = [entity for entity in package.owned_elements
+                if hasattr(entity, 'stmt') and entity.stmt.keyword in ('container', 'list')]
+        for top_entity in top_entities:
+            qualified_name = top_entity.fully_qualified_cpp_name()
+
+            path = '/%s:%s' % (top_entity.module.arg, top_entity.stmt.arg)
+            self.ctx.writeln("ydk_top_entities_table.insert(std::string{\"%s\"},"
+                         "std::make_unique<%s>());"
+                         % (path, qualified_name))
+
+            ns_stmt = top_entity.module.search_one('namespace')
+            if ns_stmt:
+                ns = '%s:%s' % (ns_stmt.arg, top_entity.stmt.arg)
+                self.ctx.writeln("ydk_top_entities_table.insert(std::string{\"%s\"},"
+                         "std::make_unique<%s>());"
+                         % (ns, qualified_name))
+
+        self.ctx.lvl_dec()
         self.ctx.writeln('}')
         self.ctx.bline()
 
