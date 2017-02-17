@@ -41,6 +41,9 @@ find_package(PythonLibs REQUIRED)
 set(CMAKE_CXX_FLAGS         "${CMAKE_CXX_FLAGS} -Wall -Wextra")
 set(CMAKE_CXX_FLAGS_RELEASE "-O2 -DNDEBUG")
 set(CMAKE_CXX_FLAGS_DEBUG   "-g -O0 -fprofile-arcs -ftest-coverage")
+if(UNIX AND NOT APPLE)
+    set(CMAKE_EXE_LINKER_FLAGS_DEBUG   "-lgcov --coverage")
+endif()
 
 
 # set default build type if not specified by user
