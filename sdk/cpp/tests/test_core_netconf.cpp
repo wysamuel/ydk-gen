@@ -26,6 +26,7 @@
 
 #include "path_api.hpp"
 #include "netconf_provider.hpp"
+#include "validation_service.hpp"
 #include "config.hpp"
 #include "catch.hpp"
 
@@ -182,14 +183,62 @@ TEST_CASE("bits")
 
 	auto & runner = schema.create("ydktest-sanity:runner", "");
 
-	//get the root
-	std::shared_ptr<const ydk::path::DataNode> data_root{&runner.root()};
-	REQUIRE( data_root != nullptr );
 
-	auto & ysanity = runner.create("ytypes/built-in-t/bits-value", "disable-nagle");
+
+
+
+	auto & ysanity = runner.create("bits-value", "disable-nagle");
 
 	ydk::path::CodecService s{};
     auto xml = s.encode(runner, ydk::EncodingFormat::XML, false);
+
+    CHECK( !xml.empty());
+
+
+    //call create
+    std::shared_ptr<ydk::path::Rpc> create_rpc { schema.rpc("ydk:create") };
+    create_rpc->input().create("entity", xml);
+    (*create_rpc)(sp);
+}
+
+TEST_CASE("leaf_list")
+{
+    ydk::NetconfServiceProvider sp{"127.0.0.1", "admin", "admin",  12022};
+    ydk::path::RootSchemaNode& schema = sp.get_root_schema();
+
+    auto & runner = schema.create("ydktest-sanity:runner", "");
+
+    auto & b = runner.create("ytypes/built-in-t");
+    b.create("llstring[.='0']");
+    b.create("llstring[.='1']");
+    b.create("llstring[.='2']");
+    b.create("llstring[.='3']");
+    b.create("llstring[.='4']");
+//    b.create("llstring[.='5']");
+//    b.create("llstring[.='6']");
+//    b.create("llstring[.='7']");
+//    b.create("llstring[.='8']");
+//    b.create("llstring[.='9']");
+
+    auto & runner1 = schema.create("ydktest-sanity:runner", "");
+
+     auto & c = runner1.create("ytypes/built-in-t");
+     c.create("llstring[.='0']");
+     c.create("llstring[.='1']");
+     c.create("llstring[.='2']");
+     c.create("llstring[.='3']");
+     c.create("llstring[.='4']");
+     c.create("llstring[.='5']");
+//     b.create("llstring[.='6']");
+//     b.create("llstring[.='7']");
+//     b.create("llstring[.='8']");
+//     b.create("llstring[.='9']");
+
+    ydk::path::ValidationService vs{};
+    vs.validate(runner1, ydk::ValidationService::Option::DATASTORE);
+
+    ydk::path::CodecService s{};
+    auto xml = s.encode(runner1, ydk::EncodingFormat::XML, false);
 
     CHECK( !xml.empty());
 
@@ -208,10 +257,6 @@ TEST_CASE("core_validate")
     ydk::path::RootSchemaNode& schema = sp.get_root_schema();
 
     auto & runner = schema.create("ietf-netconf:validate", "");
-
-    //get the root
-    std::shared_ptr<const ydk::path::DataNode> data_root{&runner.root()};
-    REQUIRE( data_root != nullptr );
 
     auto & ysanity = runner.create("source/candidate", "");
 
@@ -239,10 +284,6 @@ TEST_CASE( "bgp_xr_openconfig"  )
     ydk::path::CodecService s{};
 
     auto & bgp = schema.create("openconfig-bgp:bgp", "");
-    //get the root
-    std::shared_ptr<const ydk::path::DataNode> data_root{&bgp.root()};
-
-    REQUIRE( data_root != nullptr );
 
     //call create
     auto & as = bgp.create("global/config/as", "65172");

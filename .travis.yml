@@ -19,7 +19,7 @@ script:
     - sudo ./test/tests.sh
 
 after_success:
-    - bash <(curl -s https://codecov.io/bash) # Uploading python report to CodeCov
+    - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then bash <(curl -s https://codecov.io/bash) ; fi  # Uploading python report to CodeCov 
 
     - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then cd ${TRAVIS_BUILD_DIR}/sdk/cpp/core/build ; fi
     - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then lcov --directory . --capture --output-file coverage.info ; fi # capture coverage info

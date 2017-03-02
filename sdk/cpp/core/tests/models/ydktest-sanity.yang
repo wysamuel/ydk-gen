@@ -366,6 +366,7 @@ module ydktest-sanity {
         leaf-list llstring {
           type string;
           description "A list of string";
+          max-elements 9;
         }
 
         leaf-list bits-llist {
