@@ -56,13 +56,14 @@ typedef signed int int16;
 typedef signed int int32;
 typedef signed long long int64;
 
-enum class EditOperation
+enum class YOperation
 {
     merge,
     create,
     remove,
     delete_,
     replace,
+    read,
     not_set
 };
 
@@ -75,7 +76,7 @@ class Entity;
 class LeafData
 {
   public:
-    LeafData(std::string value, EditOperation operation, bool is_set);
+    LeafData(std::string value, YOperation operation, bool is_set);
     ~LeafData();
 
     bool operator == (LeafData & other) const;
@@ -83,7 +84,7 @@ class LeafData
 
   public:
     std::string value;
-    EditOperation operation;
+    YOperation operation;
     bool is_set;
 };
 
@@ -148,7 +149,7 @@ class Entity {
     Entity* parent;
     std::string yang_name;
     std::string yang_parent_name;
-    EditOperation operation;
+    YOperation operation;
 };
 
 class Bits {
@@ -285,7 +286,7 @@ class YLeaf
 
   public:
     bool is_set;
-    EditOperation operation;
+    YOperation operation;
 
   private:
     void store_value(std::string && val);
@@ -333,7 +334,7 @@ class YLeafList {
     virtual std::vector<YLeaf> getYLeafs() const;
 
   public:
-    EditOperation operation;
+    YOperation operation;
 
   private:
     std::vector<YLeaf> values;
@@ -351,7 +352,7 @@ enum class EncodingFormat {
     JSON
 };
 
-std::string to_string(EditOperation operation);
+std::string to_string(YOperation operation);
 
 enum class Protocol
 {
