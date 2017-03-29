@@ -69,15 +69,14 @@ class TestEntity:public Entity
 	{
 		if(child_name == child->yang_name)
 		{
-			if(children.find(child_name) != children.end())
+			if(child != nullptr)
 			{
-				return children.at(child_name);
+				return child;
 			}
 			else
 			{
 				child = make_shared<TestEntity::Child>();
 				child->parent = this;
-				children[child_name] = child;
 				return child;
 			}
 		}
@@ -100,8 +99,9 @@ class TestEntity:public Entity
 		}
 	}
 
-	std::map<std::string, std::shared_ptr<Entity>> & get_children()
+	std::map<std::string, std::shared_ptr<Entity>> get_children() const
 	{
+	    std::map<std::string, std::shared_ptr<Entity>> children;
 		return children;
 	}
 
@@ -143,24 +143,20 @@ class TestEntity:public Entity
 					string segment = ch->get_segment_path();
 					if(child_path == segment)
 					{
-						if(children.find(child_path)==children.end())
-						{
-							children[child_path] = ch;
-						}
-						return children.at(child_path);
+					    return ch;
 					}
 				}
 				auto ch = make_shared<TestEntity::Child::MultiChild>();
 				ch->parent = this;
-				multi_child.push_back(move(ch));
-				children[child_path] = multi_child.back();
+				multi_child.push_back(ch);
 				return multi_child.back();
 			}
 			return nullptr;
 		}
 
-		std::map<std::string, std::shared_ptr<Entity>> & get_children()
+		std::map<std::string, std::shared_ptr<Entity>> get_children() const
 		{
+		    std::map<std::string, std::shared_ptr<Entity>> children;
 			return children;
 		}
 
@@ -209,8 +205,9 @@ class TestEntity:public Entity
 				return nullptr;
 			}
 
-			std::map<std::string, std::shared_ptr<Entity>> & get_children()
+			std::map<std::string, std::shared_ptr<Entity>> get_children() const
 			{
+			    std::map<std::string, std::shared_ptr<Entity>> children;
 				return children;
 			}
 
