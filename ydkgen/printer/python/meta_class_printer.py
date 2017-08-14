@@ -15,7 +15,7 @@
 # ------------------------------------------------------------------
 
 """
-class_printer.py
+meta_class_printer.py
 
  YANG model driven API, class emitter.
 
@@ -34,10 +34,10 @@ from .enum_printer import EnumPrinter
 
 
 
-class ClassPrinter(FilePrinter):
+class MetaClassPrinter(FilePrinter):
 
     def __init__(self, ctx, sort_clazz, module_namespace_lookup):
-        super(ClassPrinter, self).__init__(ctx)
+        super(MetaClassPrinter, self).__init__(ctx)
         self.sort_clazz = sort_clazz
         self.module_namespace_lookup = module_namespace_lookup
 
@@ -65,9 +65,21 @@ class ClassPrinter(FilePrinter):
         children = []
         self._get_class_members(clazz, leafs, children)
         self._print_class_inits(clazz, leafs, children)
-        self._print_get_meta(clazz)
+        self._print_class_setattr(clazz, leafs)
         self._print_child_enums(clazz)
         self._print_child_classes(clazz)
+        self._print_class_functions(clazz, leafs, children)
+
+    def _print_class_functions(self, clazz, leafs, children):
+        if clazz.is_identity():
+            return
+        self._print_class_has_data(clazz, leafs, children)
+        self._print_class_has_operation(clazz, leafs, children)
+        self._print_class_get_segment_path(clazz)
+        self._print_class_get_entity_path(clazz, leafs)
+        self._print_class_get_child_by_name(clazz, children)
+        self._print_class_set_value(clazz, leafs)
+        self._print_class_clone_ptr(clazz)
 
     def _print_child_enums(self, parent):
         enumz = []
@@ -87,10 +99,8 @@ class ClassPrinter(FilePrinter):
     def _print_class_declaration(self, clazz):
         self.ctx.bline()
 
-        parents = 'Entity'
-        if clazz.is_identity():
-            parents = 'Identity'
-        elif len(clazz.extends) > 0:
+        parents = 'MetaEntity'
+        if len(clazz.extends) > 0:
             parents = ' ,'.join([sup.qn() for sup in clazz.extends])
 
         self.ctx.writeln("class %s(%s):" % (clazz.name, parents))
@@ -109,17 +119,6 @@ class ClassPrinter(FilePrinter):
             self.ctx.writeln("_revision = '%s'" % revision_stmt.arg)
         self.ctx.bline()
 
-    def _print_get_meta(self, clazz):
-        self.ctx.writeln('@staticmethod')
-        self.ctx.writeln('def _get_meta_class():')
-        self.ctx.lvl_inc()
-        self.ctx.writeln('from %s import _%s as meta' % (
-            clazz.get_meta_py_mod_name(), clazz.get_package().name))
-        self.ctx.writeln(
-            "return meta._meta_table['%s']" % clazz.qn())
-        self.ctx.lvl_dec()
-        self.ctx.bline()
-
     def _get_class_members(self, clazz, leafs, children):
         for prop in clazz.properties():
             ptype = prop.property_type
@@ -128,10 +127,37 @@ class ClassPrinter(FilePrinter):
             elif ptype is not None:
                 leafs.append(prop)
 
-
     def _print_class_inits(self, clazz, leafs, children):
         ClassInitsPrinter(self.ctx, self.module_namespace_lookup).print_output(clazz, leafs, children)
 
+    def _print_class_setattr(self, clazz, leafs):
+        ClassSetAttrPrinter(self.ctx).print_setattr(clazz, leafs)
+
+    def _print_class_has_data(self, clazz, leafs, children):
+        ClassHasDataPrinter(self.ctx).print_class_has_data(clazz, leafs, children)
+
+    def _print_class_has_operation(self, clazz, leafs, children):
+        ClassHasDataPrinter(self.ctx).print_class_has_operation(clazz, leafs, children)
+
+    def _print_class_get_segment_path(self, clazz):
+        GetSegmentPathPrinter(self.ctx).print_output(clazz)
+
+    def _print_class_get_entity_path(self, clazz, leafs):
+        GetEntityPathPrinter(self.ctx).print_output(clazz, leafs)
+
+    def _print_class_get_child_by_name(self, clazz, children):
+        ClassGetChildByNamePrinter(self.ctx).print_class_get_child_by_name(clazz, children)
+
+    def _print_class_set_value(self, clazz, leafs):
+        ClassSetYLeafPrinter(self.ctx).print_class_set_value(clazz, leafs)
+
+    def _print_class_clone_ptr(self, clazz):
+        if clazz.owner is not None and isinstance(clazz.owner, Package):
+            self.ctx.writeln('def clone_ptr(self):')
+            self.ctx.lvl_inc()
+            self.ctx.writeln('self._top_entity = %s()' % clazz.qn())
+            self.ctx.writeln('return self._top_entity')
+            self.ctx.lvl_dec()
 
     def _print_enum(self, enum_class):
         EnumPrinter(self.ctx).print_enum(enum_class, False)

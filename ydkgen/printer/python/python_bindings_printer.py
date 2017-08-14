@@ -80,12 +80,16 @@ class PythonBindingsPrinter(LanguageBindingsPrinter):
 
         test_output_dir = self.initialize_output_directory(self.test_dir)
 
-        # RST Documentation
-        self._print_python_module(package, index, self.models_dir, size, sub)
+        self._print_python_module(package, self.models_dir, sub)
+
+        meta_dir_path = os.path.join(self.models_dir, '_meta')
+        self.initialize_output_directory(meta_dir_path)
+        self._print_python_meta_module(package, meta_dir_path, sub)
 
         if self.generate_tests:
             self._print_tests(package, test_output_dir)
 
+        # RST Documentation
         if self.ydk_doc_dir is not None:
             self._print_python_rst_module(package)
 
@@ -115,15 +119,28 @@ class PythonBindingsPrinter(LanguageBindingsPrinter):
                         emit_table_of_contents,
                         _EmitArgs(self.ypy_ctx, packages, (self.bundle_name, self.bundle_version)))
 
-    def _print_python_module(self, package, index, path, size, sub):
+    def _print_python_module(self, package, path, sub):
         self._print_init_file(path)
 
         package.parent_pkg_name = sub
         extra_args = {'sort_clazz': False,
                       'identity_subclasses': self.identity_subclasses,
-                      'module_namespace_lookup' : self.module_namespace_lookup}
+                      'module_namespace_lookup' : self.module_namespace_lookup,
+                      'printing_meta': False}
         self.print_file(get_python_module_file_name(path, package),
                         emit_module,
+                        _EmitArgs(self.ypy_ctx, package, extra_args))
+
+    def _print_python_meta_module(self, package, path, sub):
+        self._print_init_file(path)
+
+        package.parent_pkg_name = sub
+        extra_args = {'sort_clazz': False,
+                      'identity_subclasses': self.identity_subclasses,
+                      'module_namespace_lookup' : self.module_namespace_lookup,
+                      'printing_meta' : True}
+        self.print_file(get_python_meta_module_file_name(path, package),
+                        emit_meta_module,
                         _EmitArgs(self.ypy_ctx, package, extra_args))
 
     def _print_tests(self, package, path):
@@ -203,6 +220,10 @@ def get_python_module_file_name(path, package):
     return '%s/%s.py' % (path, package.name)
 
 
+def get_python_meta_module_file_name(path, package):
+    return '%s/_%s.py' % (path, package.name)
+
+
 def get_test_module_file_name(path, package):
     return '%s/test_%s.py' % (path, package.stmt.arg.replace('-', '_'))
 
@@ -221,6 +242,10 @@ def emit_module_documentation(ctx, named_element, identity_subclasses):
 
 def emit_table_of_contents(ctx, packages, extra_args):
     DocPrinter(ctx, 'py').print_table_of_contents(packages, extra_args[0], extra_args[1])
+
+
+def emit_meta_module(ctx, package, extra_args):
+    ModulePrinter(ctx, extra_args).print_output(package)
 
 
 def emit_module(ctx, package, extra_args):

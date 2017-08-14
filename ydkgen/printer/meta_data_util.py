@@ -577,7 +577,7 @@ def get_bits_class_docstring(bitz):
 
 def get_bits_doc_link(bitz, language):
     if language == 'py':
-        return get_class_crossref_tag(bitz.name, bitz, language)
+        return ':py:class:`Bits<ydk.types.Bits>`\n\t%s' % get_bits_class_docstring(bitz)
     elif language == 'cpp':
         return ':cpp:class:`Bits<ydk::Bits>`\n\t%s' % get_bits_class_docstring(bitz)
 

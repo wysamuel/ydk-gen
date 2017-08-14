@@ -186,3 +186,10 @@ class Entity(_Entity):
                         value.parent = self
                 super(Entity, self).__setattr__(name, value)
 
+
+class MetaEntity(Entity):
+    """ Meta Entity wrapper class
+    """
+    def __init__(self):
+        super(MetaEntity, self).__init__()
+

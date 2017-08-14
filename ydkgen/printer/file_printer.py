@@ -56,6 +56,7 @@ class FilePrinter(object):
     def _check_tab_leak(self):
         end_tab = self.ctx.lvl
         if self._start_tab.pop() != end_tab:
+            from pdb import set_trace as bp;bp()
             raise Exception('Tab leak !!!')
 
     def print_output(self,packages):

@@ -22,7 +22,6 @@ printer.py
 """
 
 
-from .python.bits_printer import BitsPrinter
 from .python.class_docstring_printer import ClassDocstringPrinter
 from .python.class_has_data_printer import ClassHasDataPrinter
 from .python.class_inits_printer import ClassInitsPrinter
