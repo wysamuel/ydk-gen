@@ -110,13 +110,15 @@ class ClassPrinter(FilePrinter):
         self.ctx.bline()
 
     def _print_get_meta(self, clazz):
+        if clazz.is_identity():
+            return
         self.ctx.writeln('@staticmethod')
         self.ctx.writeln('def _get_meta_class():')
         self.ctx.lvl_inc()
         self.ctx.writeln('from %s import _%s as meta' % (
             clazz.get_meta_py_mod_name(), clazz.get_package().name))
         self.ctx.writeln(
-            "return meta._meta_table['%s']" % clazz.qn())
+            "return getattr(meta, '%s')()" % (clazz.qn()))
         self.ctx.lvl_dec()
         self.ctx.bline()
 

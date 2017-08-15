@@ -27,7 +27,6 @@ from ydkgen.common import convert_to_reStructuredText
 from .class_printer import ClassPrinter
 from .enum_printer import EnumPrinter
 from .meta_class_printer import MetaClassPrinter
-from .meta_table_printer import MetaTablePrinter
 from ydkgen.printer.file_printer import FilePrinter
 
 
@@ -54,13 +53,14 @@ class ModulePrinter(FilePrinter):
     def print_body(self, package):
         if self.printing_meta:
             self._print_meta_module_classes(package)
-            self._print_meta_module_table(package)
         else:
             self._print_module_enums(package)
             self._print_module_classes(package)
         self.ctx.bline()
 
     def _print_module_description(self, package):
+        if self.printing_meta:
+            return
         comment = package.stmt.search_one('description')
         self.ctx.writeln('""" %s ' % package.name)
         self.ctx.bline()
@@ -112,10 +112,7 @@ class ModulePrinter(FilePrinter):
 
     def _print_meta_module_classes(self, package):
         MetaClassPrinter(self.ctx, self.sort_clazz, self.module_namespace_lookup).print_output(
-            [clazz for clazz in package.owned_elements if isinstance(clazz, Class)])
-
-    def _print_meta_module_table(self, package):
-        MetaTablePrinter(self.ctx).print_table(package)
+            [clazz for clazz in package.owned_elements if isinstance(clazz, Class) and not clazz.is_identity()])
 
     def _print_bits(self, bits):
         BitsPrinter(self.ctx).print_bits(bits)

@@ -128,22 +128,6 @@ class Entity(_Entity):
             return True
         return super(Entity, self).__ne__(other)
 
-    def get_children(self):
-        children = ChildrenMap()
-
-        for name in self.__dict__:
-            value = self.__dict__[name]
-            if isinstance(value, Entity) and name != '_top_entity':
-                if name not in self._children_name_map:
-                    continue
-                children[name] = value
-            elif isinstance(value, YList):
-                for v in value:
-                    if isinstance(v, Entity):
-                        children[v.get_segment_path()] = v
-        self._local_refs["ydk::children"] = children
-        return children
-
     def _get_child_by_seg_name(self, segs):
         for seg in segs:
             for name in self._children_name_map:
@@ -185,6 +169,60 @@ class Entity(_Entity):
                     elif value.parent is None and value.yang_name in self._children_yang_names:
                         value.parent = self
                 super(Entity, self).__setattr__(name, value)
+
+        def get_children(self):
+            children = ChildrenMap()
+
+            for name in self.__dict__:
+                value = self.__dict__[name]
+                if isinstance(value, Entity) and name != '_top_entity':
+                    if name not in self._children_name_map:
+                        continue
+                    children[name] = value
+                elif isinstance(value, YList):
+                    for v in value:
+                        if isinstance(v, Entity):
+                            children[v.get_segment_path()] = v
+            self._local_refs["ydk::children"] = children
+            return children
+
+        def get_entity_path(self, ancestor):
+            meta = self.__class__._get_meta_class()
+            return meta.get_entity_path(ancestor)
+
+        def get_segment_path(self):
+            meta = self.__class__._get_meta_class()
+            return meta.get_segment_path()
+
+        def has_data(self):
+            meta = self._get_meta_class()
+            return meta.has_data()
+
+        def has_operation(self):
+            meta = self._get_meta_class()
+            return meta.has_operation()
+
+        def set_value(self, path, value, name_space, name_space_prefix):
+            meta = self._get_meta_class()
+            return meta.set_value(path, value, name_space, name_space_prefix)
+
+        def set_filter(self, path, filter):
+            meta = self._get_meta_class()
+            return meta.set_filter(path, filter)
+
+        def get_child_by_name(self, yang_name, segment_path):
+            meta = self._get_meta_class()
+            return meta.get_child_by_name(yang_name, segment_path)
+
+        def has_leaf_or_child_of_name(self, name):
+            meta = self._get_meta_class()
+            return meta.has_leaf_or_child_of_name(name)
+
+        def clone_ptr(self):
+            meta = self._get_meta_class()
+            if hasattr(meta, 'clone_ptr'):
+                return meta.clone_ptr()
+            return None
 
 
 class MetaEntity(Entity):
