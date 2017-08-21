@@ -77,7 +77,6 @@ class EnumPrinter(object):
         name = enum_literal.name
         value = enum_literal.value
         self.ctx.writeln('%s = Enum.YLeaf(%s, "%s")' % (name, value, enum_literal.stmt.arg))
-        self.ctx.bline()
 
     def _print_enum_trailer(self, enum_class):
         self.ctx.lvl_dec()

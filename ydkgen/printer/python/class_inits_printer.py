@@ -49,6 +49,61 @@ def get_lists(clazz):
     return lists
 
 
+def get_type_name(prop_type):
+    if prop_type.name == 'string':
+        return 'str'
+    elif prop_type.name == 'leafref':
+        return 'str'
+    elif prop_type.name == 'decimal64':
+        return 'str'
+    elif prop_type.name == 'union':
+        return 'str'
+    elif prop_type.name == 'binary':
+        return 'str'
+    elif prop_type.name == 'instance-identifier':
+        return 'str'
+    elif isinstance(prop_type, Bits):
+        return 'bits'
+    elif isinstance(prop_type, Class) and prop_type.is_identity():
+        return 'identityref'
+    elif isinstance(prop_type, Enum):
+        return 'enumeration'
+    elif isinstance(prop_type, DataType):
+        return 'str'
+    return prop_type.name
+
+
+def get_yang_name_for_leaf(clazz, prop):
+    if all((prop.stmt.top.arg != clazz.stmt.top.arg,
+            hasattr(prop.stmt.top, 'i_aug_targets') and
+                    clazz.stmt.top in prop.stmt.top.i_aug_targets)):
+        name = ':'.join([prop.stmt.top.arg, prop.stmt.arg])
+    else:
+        name = prop.stmt.arg
+    return name
+
+
+def get_leafs_children(clazz, leafs, children):
+    leaf_names_list = {}
+    leaflist_names_list = {}
+    for leaf in leafs:
+        if leaf.is_many:
+            t = 'YLeafList'
+            l = leaflist_names_list
+        else:
+            t = 'YLeaf'
+            l = leaf_names_list
+        leaf_yang_name = get_yang_name_for_leaf(clazz, leaf)
+        leaf_type = get_type_name(leaf.property_type)
+        l["'%s'"%leaf.name] = "(%s(YType.%s, '%s'), '%s')"%(t, leaf_type, leaf_yang_name, leaf_yang_name)
+
+    leaf_names = '{%s}' % (','.join(['%s:%s'%(k,v) for k,v in leaf_names_list.items()]))
+    leaflist_names = '{%s}' % (','.join(['%s:%s' % (k, v) for k, v in leaflist_names_list.items()]))
+    child_names = '[%s]' % (','.join(["'%s'" % child.name for child in children if not child.is_many]))
+    list_names = '[%s]' % (','.join(["'%s'" % child.name for child in children if not child.is_many]))
+    return (leaf_names, leaflist_names, child_names, list_names)
+
+
 class ClassInitsPrinter(object):
 
     def __init__(self, ctx, module_namespace_lookup):
@@ -74,41 +129,24 @@ class ClassInitsPrinter(object):
             self.ctx.writeln('super(%s, self).__init__()' % clazz.qn())
             if clazz.owner is not None and isinstance(clazz.owner, Package):
                 self.ctx.writeln('self._top_entity = None')
-            self.ctx.bline()
             self.ctx.writeln('self.yang_name = "%s"' % clazz.stmt.arg)
             self.ctx.writeln('self.yang_parent_name = "%s"' % clazz.owner.stmt.arg)
             if clazz.stmt.search_one('presence') is not None:
                 self.ctx.writeln('self.is_presence_container = True')
-            self._print_init_leafs_and_leaflists(clazz, leafs)
-            self._print_init_children(children)
-        self._print_init_lists(clazz)
+            self._print_init_leafs_children(clazz, leafs, children)
+            self.ctx.writeln('self._setup_class(self, self.leaf_names, self.leaflist_names, self.child_names, self.list_names)')
 
-    def _print_init_leafs_and_leaflists(self, clazz, leafs):
-        yleafs = get_leafs(clazz)
-        yleaf_lists = get_leaf_lists(clazz)
-
-        for prop in leafs:
-            leaf_type = None
-            if prop in yleafs:
-                leaf_type = 'YLeaf'
-            elif prop in yleaf_lists:
-                leaf_type = 'YLeafList'
-
-            self.ctx.bline()
-            if all((prop.stmt.top.arg != clazz.stmt.top.arg,
-                    hasattr(prop.stmt.top, 'i_aug_targets') and
-                    clazz.stmt.top in prop.stmt.top.i_aug_targets)):
-                name = ':'.join([prop.stmt.top.arg, prop.stmt.arg])
-            else:
-                name = prop.stmt.arg
-
-            self.ctx.writeln('self.%s = %s(YType.%s, "%s")'
-                % (prop.name, leaf_type, self._get_type_name(prop.property_type), name))
+    def _print_init_leafs_children(self, clazz, leafs, children):
+        (leaf_names, leaflist_names, child_names, list_names) = get_leafs_children(clazz, leafs, children)
+        self.ctx.bline()
+        self.ctx.writeln('self.leaf_names = %s' % leaf_names)
+        self.ctx.writeln('self.leaflist_names = %s' % leaflist_names)
+        self.ctx.writeln('self.child_names = %s' % child_names)
+        self.ctx.writeln('self.list_names = %s' % list_names)
 
     def _print_init_children(self, children):
         for child in children:
             if not child.is_many:
-                self.ctx.bline()
                 if (child.stmt.search_one('presence') is None):
                     self.ctx.writeln('self.%s = %s()' % (child.name, child.property_type.qn()))
                     self.ctx.writeln('self.%s.parent = self' % child.name)
@@ -130,34 +168,11 @@ class ClassInitsPrinter(object):
         if len(output) > 0:
             self.ctx.bline()
             self.ctx.writelns(output)
-            self.ctx.bline()
 
     def _print_class_inits_trailer(self, clazz):
         self.ctx.lvl_dec()
         self.ctx.bline()
 
-    def _get_type_name(self, prop_type):
-        if prop_type.name == 'string':
-            return 'str'
-        elif prop_type.name == 'leafref':
-            return 'str'
-        elif prop_type.name == 'decimal64':
-            return 'str'
-        elif prop_type.name == 'union':
-            return 'str'
-        elif prop_type.name == 'binary':
-            return 'str'
-        elif prop_type.name == 'instance-identifier':
-            return 'str'
-        elif isinstance(prop_type, Bits):
-            return 'bits'
-        elif isinstance(prop_type, Class) and prop_type.is_identity():
-            return 'identityref'
-        elif isinstance(prop_type, Enum):
-            return 'enumeration'
-        elif isinstance(prop_type, DataType):
-            return 'str'
-        return prop_type.name
 
 class ClassSetAttrPrinter(object):
 

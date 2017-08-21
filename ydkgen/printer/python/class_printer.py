@@ -27,7 +27,6 @@ from ydkgen.printer.file_printer import FilePrinter
 # from .bits_printer import BitsPrinter
 from .class_docstring_printer import ClassDocstringPrinter
 from .class_inits_printer import ClassInitsPrinter, ClassSetAttrPrinter
-from .class_has_data_printer import ClassHasDataPrinter
 from .class_get_entity_path_printer import GetEntityPathPrinter, GetSegmentPathPrinter
 from .class_get_child_by_name_printer import ClassGetChildByNamePrinter
 from .class_set_value_printer import ClassSetYLeafPrinter
@@ -74,8 +73,6 @@ class ClassPrinter(FilePrinter):
     def _print_class_functions(self, clazz, leafs, children):
         if clazz.is_identity():
             return
-        self._print_class_has_data(clazz, leafs, children)
-        self._print_class_has_operation(clazz, leafs, children)
         self._print_class_get_segment_path(clazz)
         self._print_class_get_entity_path(clazz, leafs)
         self._print_class_get_child_by_name(clazz, children)
@@ -143,9 +140,6 @@ class ClassPrinter(FilePrinter):
 
     def _print_class_setattr(self, clazz, leafs):
         ClassSetAttrPrinter(self.ctx).print_setattr(clazz, leafs)
-
-    def _print_class_has_data(self, clazz, leafs, children):
-        ClassHasDataPrinter(self.ctx).print_class_has_data(clazz, leafs, children)
 
     def _print_class_has_operation(self, clazz, leafs, children):
         ClassHasDataPrinter(self.ctx).print_class_has_operation(clazz, leafs, children)

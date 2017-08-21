@@ -26,6 +26,7 @@ from ydk.ext.types import Enum as _Enum
 from ydk.ext.types import YLeaf as _YLeaf
 from ydk.ext.types import YLeafList as _YLeafList
 from ydk.ext.types import Entity as _Entity
+from ydk.ext.types import LeafDataList
 from ydk.filters import YFilter as _YFilter
 from ydk.errors import YPYModelError as _YPYModelError
 from ydk.errors.error_handler import handle_type_error as _handle_type_error
@@ -186,3 +187,103 @@ class Entity(_Entity):
                         value.parent = self
                 super(Entity, self).__setattr__(name, value)
 
+    def _setup_class(self, obj, leaf_names, leaflist_names, child_names, list_names):
+        setattr(obj, '_has_data', self._has_data)
+        setattr(obj, '_has_operation', self._has_operation)
+        setattr(obj, '_create_leafdata', self._create_leafdata)
+        for k,v in leaf_names.items():
+            setattr(obj, k[0], v)
+        for k,v in leaflist_names.items():
+            setattr(obj, k[0], v)
+
+    def _has_data(self, leaf_names, leaf_lists, child_names, list_names):
+        for leaf_name in leaf_names:
+            if getattr(self, leaf_name).is_set:
+                return True
+
+        for leaf_name in leaf_lists:
+            leaf_list = getattr(self, leaf_name)
+            if leaf_list.is_set:
+                return True
+            for item in leaf_list.getYLeafs():
+                if item.is_set:
+                    return True
+
+        for child_name in child_names:
+            child = getattr(self, child_name)
+            if child is not None and child.has_data():
+                return True
+
+        for child_name in list_names:
+            child_list = getattr(self, child_name)
+            for child in child_list:
+                if child is not None and child.has_data():
+                    return True
+        return False
+
+    def _has_operation(self, self_yfilter, leaf_names, leaf_lists, child_names, list_names):
+        for leaf_name in leaf_names:
+            if getattr(self, leaf_name).yfilter != YFilter.not_set:
+                return True
+
+        for leaf_name in leaf_lists:
+            leaf_list = getattr(self, leaf_name)
+            if leaf_list.yfilter != YFilter.not_set:
+                return True
+            for item in leaf_list.getYLeafs():
+                if item.yfilter != YFilter.not_set:
+                    return True
+
+        for child_name in child_names:
+            child = getattr(self, child_name)
+            if child is not None and child.has_operation():
+                return True
+
+        for child_name in list_names:
+            child_list = getattr(self, child_name)
+            for child in child_list:
+                if child is not None and child.has_operation():
+                    return True
+        return False
+
+    def _create_leafdata(self, leaf_names, leaflist_names):
+        leaf_name_data = LeafDataList()
+        for leaf_name in leaf_names:
+            leaf = getattr(self, leaf_name)
+            if (leaf.is_set or leaf.yfilter != YFilter.not_set):
+                leaf_name_data.append(leaf.get_name_leafdata())
+        leaf_name_data.extend(self._create_leaflists_leafdata(leaflist_names))
+        return leaf_name_data
+
+    def _create_leaflists_leafdata(self, leaflist_names):
+        leaf_name_data = LeafDataList()
+        for leaf_name in leaflist_names:
+            leaf = getattr(self, leaf_name)
+            leaf_name_data.extend(leaf.get_name_leafdata())
+        return leaf_name_data
+
+'''
+    def _set_value(self, value_path, value, name_space, name_space_prefix,
+                   leaf_names, leaf_lists, child_names, list_names):
+        
+        self.ctx.writeln('if(value_path == "%s"):' % (leaf.stmt.arg))
+        self.ctx.lvl_inc()
+        if(isinstance(leaf.property_type, Bits)):
+            if leaf.is_many:
+                self.ctx.writeln('bits_value = Bits()')
+                self.ctx.writeln('bits_value[value] = True')
+                self.ctx.writeln('self.%s.append(bits_value)' % leaf.name)
+            else:
+                self.ctx.writeln('self.%s[value] = True' % leaf.name)
+        elif(leaf.is_many):
+            if isinstance(leaf.property_type, Class) and leaf.property_type.is_identity():
+                self.ctx.writeln('identity = Identity(name_space, name_space_prefix, value)')
+                self.ctx.writeln('self.%s.append(identity)' % leaf.name)
+            else:
+                self.ctx.writeln('self.%s.append(value)' % leaf.name)
+        else:
+            self.ctx.writeln('self.%s = value' % leaf.name)
+            self.ctx.writeln('self.%s.value_namespace = name_space' % leaf.name)
+            self.ctx.writeln('self.%s.value_namespace_prefix = name_space_prefix' % leaf.name)
+        self.ctx.lvl_dec()
+        '''

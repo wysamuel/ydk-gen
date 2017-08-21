@@ -91,14 +91,14 @@ def get_class_docstring(clazz, language, identity_subclasses=None):
         attribute_title = prop.name
         if prop in keys:
             attribute_title = '%s  <key>' % attribute_title
-        properties_description.append('.. attribute:: %s\n\n' % (attribute_title))
+        properties_description.append('.. attribute:: %s\n' % (attribute_title))
 
         properties_description.append('\t%s\n' % (
             convert_to_reStructuredText(prop_comment)))
 
         properties_description.extend(get_type_doc(meta_info_data, type_depth=1))
 
-    return convert_to_reStructuredText(class_description) + '\n\n' + ''.join(properties_description)
+    return convert_to_reStructuredText(class_description) + '\n' + ''.join(properties_description)
 
 
 def get_type_doc(meta_info_data, type_depth):
@@ -106,21 +106,21 @@ def get_type_doc(meta_info_data, type_depth):
 
     if len(meta_info_data.children) > 0:
         if type_depth == 1:
-            properties_description.append('\t**type**\: one of the below types:\n\n')
+            properties_description.append('\t**type**\: one of the below types:\n')
         for child in meta_info_data.children:
             properties_description.extend(get_type_doc(child, type_depth + 1))
             properties_description.append('\n----\n')
     else:
         target = meta_info_data.doc_link
         if isinstance(meta_info_data.doc_link, list):
-            doc_link = map(lambda l: '\n\n\t\t%s' % l, meta_info_data.doc_link)
+            doc_link = map(lambda l: '\n\t\t%s' % l, meta_info_data.doc_link)
             target = ''.join(doc_link)
         properties_description.append('\t**type**\: %s %s\n\n' %
             (meta_info_data.doc_link_description, target))
 
         prop_restriction = get_property_restriction(meta_info_data)
         if prop_restriction is not None and len(prop_restriction) > 0:
-            properties_description.append('\t%s\n\n' % (prop_restriction))
+            properties_description.append('\t%s\n' % (prop_restriction))
         if len(meta_info_data.target_of_leafref) > 0:
             properties_description.append('\t**refers to**\: %s\n\n' % (meta_info_data.target_of_leafref))
         if meta_info_data.mandatory:
@@ -142,16 +142,16 @@ def get_enum_class_docstring(enumz):
     if enumz.comment is not None:
         enumz_description = enumz.comment
 
-    enumz_description = "%s\n\n\n" % (enumz.name) + enumz_description
+    enumz_description = "%s\n" % (enumz.name) + enumz_description
 
     literals_description = []
     for enum_literal in enumz.literals:
         literals_description.append(".. data:: %s = %s\n" % (enum_literal.name, enum_literal.value))
         if enum_literal.comment is not None:
             for line in enum_literal.comment.split("\n"):
-                literals_description.append("\t%s\n\n" % line)
+                literals_description.append("\t%s\n" % line)
 
-    return ''.join([convert_to_reStructuredText(enumz_description)] + ['\n\n'] + literals_description)
+    return ''.join([convert_to_reStructuredText(enumz_description)] + ['\n'] + literals_description)
 
 
 def get_property_restriction(meta_info_data):

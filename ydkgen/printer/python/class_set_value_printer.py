@@ -34,38 +34,18 @@ class ClassSetYLeafPrinter(object):
 
     def _print_class_set_value_header(self, clazz):
         self.ctx.writeln('def set_value(self, value_path, value, name_space, name_space_prefix):')
-        self.ctx.lvl_inc()
 
     def _print_class_set_value_body(self, leafs):
-        for leaf in leafs:
-            self._print_class_set_values(leaf)
+        self.ctx.lvl_inc()
 
         if len(leafs) == 0:
             self.ctx.writeln('pass')
-
-    def _print_class_set_values(self, leaf):
-        self.ctx.writeln('if(value_path == "%s"):' % (leaf.stmt.arg))
-        self.ctx.lvl_inc()
-        if(isinstance(leaf.property_type, Bits)):
-            if leaf.is_many:
-                self.ctx.writeln('bits_value = Bits()')
-                self.ctx.writeln('bits_value[value] = True')
-                self.ctx.writeln('self.%s.append(bits_value)' % leaf.name)
-            else:
-                self.ctx.writeln('self.%s[value] = True' % leaf.name)
-        elif(leaf.is_many):
-            if isinstance(leaf.property_type, Class) and leaf.property_type.is_identity():
-                self.ctx.writeln('identity = Identity(name_space, name_space_prefix, value)')
-                self.ctx.writeln('self.%s.append(identity)' % leaf.name)
-            else:
-                self.ctx.writeln('self.%s.append(value)' % leaf.name)
         else:
-            self.ctx.writeln('self.%s = value' % leaf.name)
-            self.ctx.writeln('self.%s.value_namespace = name_space' % leaf.name)
-            self.ctx.writeln('self.%s.value_namespace_prefix = name_space_prefix' % leaf.name)
+            self.ctx.writeln(
+                'return self._set_value(self, value_path, value, name_space, name_space_prefix, self.leaf_names, self.leaflist_names, self.child_names, self.list_names)')
+
         self.ctx.lvl_dec()
 
     def _print_class_set_value_trailer(self, clazz):
-        self.ctx.lvl_dec()
         self.ctx.bline()
 

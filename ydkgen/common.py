@@ -105,23 +105,6 @@ class YdkGenException(Exception):
             print(msg)
 
 
-def yang_id(stmt):
-    if hasattr(stmt, 'arg') and stmt.arg is not None:
-        return stmt.arg.replace(':', '_')
-    else:
-        return None
-
-def merge_file_path_segments(segs):
-    '''Merge the segs to form a path '''
-    return_seg = ''
-
-    for seg in segs:
-        if not seg.length() == 0 and not return_seg.endswith('/'):
-            return_seg = '%s/' % (return_seg)
-        return_seg = '%s%s' % (return_seg, seg)
-    return return_seg
-
-
 def ispythonkeyword(word):
     return keyword.iskeyword(word) or word in ('None', 'parent', 'children', 'operation', 'exec', 'entity')
 

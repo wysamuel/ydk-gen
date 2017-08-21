@@ -195,23 +195,9 @@ class GetEntityPathPrinter(object):
             self.ctx.lvl_dec()
             self.ctx.bline()
        
-        self.ctx.writeln('leaf_name_data = LeafDataList()')
-        for prop in leafs:
-            if not prop.is_many:
-                self.ctx.writeln('if (self.%s.is_set or self.%s.yfilter != YFilter.not_set):' % (prop.name, prop.name))
-                self.ctx.lvl_inc()
-                self.ctx.writeln('leaf_name_data.append(self.%s.get_name_leafdata())' % (prop.name))
-                self.ctx.lvl_dec()
-        self._print_get_entity_path_leaflists(leafs)
-        self.ctx.bline()
+        self.ctx.writeln('leaf_name_data = self._create_leafdata(self.leaf_names, self.leaflist_names)')
         self.ctx.writeln('entity_path = EntityPath(path_buffer, leaf_name_data)')
         self.ctx.writeln('return entity_path')
-
-    def _print_get_entity_path_leaflists(self, leafs):
-        leaf_lists = [leaf for leaf in leafs if leaf.is_many]
-        for leaf in leaf_lists:
-            self.ctx.bline()
-            self.ctx.writeln('leaf_name_data.extend(self.%s.get_name_leafdata())' % leaf.name)
 
     def _print_get_entity_path_trailer(self, clazz):
         self.ctx.lvl_dec()
