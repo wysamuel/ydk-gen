@@ -33,6 +33,15 @@ class Entity;
 std::string get_relative_entity_path(const Entity* current_node, const Entity* ancestor, std::string path);
 bool is_set(const YFilter & yfilter);
 
+std::map<std::string, std::shared_ptr<Entity>> get_children(const Entity & entity);
+bool has_data(const Entity & entity);
+bool has_operation(const Entity & entity);
+std::vector<std::pair<std::string, LeafData> > get_name_leaf_data(const Entity & entity);
+void set_value(Entity & entity, const std::string & path, const std::string & value, const std::string & name_space, const std::string & name_space_prefix, bool is_bit);
+void set_filter(Entity & entity, const std::string & path, YFilter yfilter);
+bool has_leaf_or_child_of_name(const Entity & entity, const std::string & name);
+const EntityPath get_entity_path(const Entity & entity, Entity* ancestor);
+
 }
 
 #endif /* ENTITY_UTIL_HPP */

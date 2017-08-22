@@ -26,6 +26,7 @@
 //////////////////////////////////////////////////////////////////
 
 #include "../src/types.hpp"
+#include "../src/entity_util.hpp"
 #include "catch.hpp"
 #include <iostream>
 
@@ -46,24 +47,29 @@ class TestEntity:public Entity
     }
 
   public:
-    bool has_data() const
+    std::map<std::string, shared_ptr<Entity>> get_child_containers() const
     {
-        return name.is_set || enabled.is_set;
+        return {{"child", child}};
     }
 
-    bool has_operation() const
+    std::map<std::string, std::shared_ptr<Entity>> get_child_lists() const
     {
-        return false;
+        return {{}};
+    }
+
+    std::vector<YLeaf> get_leafs() const
+    {
+        return {name, enabled, bits_field};
+    }
+
+    std::vector<YLeafList> get_leaf_lists() const
+    {
+        return {};
     }
 
     std::string get_segment_path() const
     {
         return "test";
-    }
-
-    const EntityPath get_entity_path(Entity* parent) const
-    {
-        return {{"test"}, {name.get_name_leafdata(), enabled.get_name_leafdata(), bits_field.get_name_leafdata()}};
     }
 
     std::shared_ptr<Entity> get_child_by_name(const std::string & child_path, const string & u)
@@ -84,37 +90,6 @@ class TestEntity:public Entity
         return nullptr;
     }
 
-    bool has_leaf_or_child_of_name(const std::string & name) const override
-    {
-        return false;
-    }
-
-    void set_filter(const std::string & name1, YFilter yfilter)
-    {
-    }
-
-    void set_value(const std::string & name1, const std::string & value, const std::string & value1, const std::string & value2)
-    {
-        if(name1 == "name")
-        {
-            name = value;
-        }
-        else if(name1 == "enabled")
-        {
-            enabled = value;
-        }
-        else if(name1 == "bits-field")
-        {
-            bits_field[value] = true;
-        }
-    }
-
-    std::map<std::string, std::shared_ptr<Entity>> get_children() const
-    {
-        std::map<std::string, std::shared_ptr<Entity>> children;
-        return children;
-    }
-
     class Child:public Entity
     {
       public:
@@ -124,29 +99,32 @@ class TestEntity:public Entity
             yang_name = "child"; yang_parent_name = "test";
           }
 
-        bool has_data() const
-        {
-            return child_val.is_set;
-        }
-
-        bool has_leaf_or_child_of_name(const std::string & name) const override
-        {
-            return false;
-        }
-
-        bool has_operation() const
-        {
-            return false;
-        }
-
         std::string get_segment_path() const
         {
             return "child";
         }
 
-        const EntityPath get_entity_path(Entity* parent) const
+        std::map<std::string, shared_ptr<Entity>> get_child_containers() const
         {
-            return {{"child"}, {child_val.get_name_leafdata()}};
+            return {{}};
+        }
+
+        std::map<std::string, std::shared_ptr<Entity>> get_child_lists() const
+        {
+            std::map<std::string, std::shared_ptr<Entity>> m;
+            for(auto & c:multi_child)
+                m[c->get_segment_path()]=c;
+            return m;
+        }
+
+        std::vector<YLeaf> get_leafs() const
+        {
+            return {child_val};
+        }
+
+        std::vector<YLeafList> get_leaf_lists() const
+        {
+            return {};
         }
 
         std::shared_ptr<Entity> get_child_by_name(const std::string & child_path, const string & u)
@@ -168,25 +146,6 @@ class TestEntity:public Entity
             }
             return nullptr;
         }
-
-        std::map<std::string, std::shared_ptr<Entity>> get_children() const
-        {
-            std::map<std::string, std::shared_ptr<Entity>> children;
-            return children;
-        }
-
-        void set_filter(const std::string & name1, YFilter yfilter)
-        {
-        }
-
-        void set_value(const std::string & leaf_name, const std::string & value, const std::string & value1, const std::string & value2)
-        {
-            if(leaf_name == "child-val")
-            {
-                child_val = value;
-            }
-        }
-
         YLeaf child_val;
 
 
@@ -199,53 +158,35 @@ class TestEntity:public Entity
                 yang_name = "multi-child"; yang_parent_name = "child";
               }
 
-            bool has_data() const
-            {
-                return child_key.is_set;
-            }
-
-            bool has_operation() const
-            {
-                return false;
-            }
-
-            bool has_leaf_or_child_of_name(const std::string & name) const override
-            {
-                return false;
-            }
-
             std::string get_segment_path() const
             {
                 return "multi-child[child-key='"+child_key.get()+"']";
             }
 
-            const EntityPath get_entity_path(Entity* parent) const
+            std::map<std::string, shared_ptr<Entity>> get_child_containers() const
             {
-                return {{"multi-child[child-key='"+child_key.get()+"']"}, {child_key.get_name_leafdata()}};
+                return {{}};
             }
 
+            std::map<std::string, std::shared_ptr<Entity>> get_child_lists() const
+            {
+                return {{}};
+            }
+
+            std::vector<YLeaf> get_leafs() const
+            {
+                return {child_key};
+            }
+
+            std::vector<YLeafList> get_leaf_lists() const
+            {
+                return {};
+            }
             std::shared_ptr<Entity> get_child_by_name(const std::string & child_path, const string & u)
             {
                 return nullptr;
             }
 
-            std::map<std::string, std::shared_ptr<Entity>> get_children() const
-            {
-                std::map<std::string, std::shared_ptr<Entity>> children;
-                return children;
-            }
-
-            void set_filter(const std::string & name1, YFilter yfilter)
-            {
-            }
-
-            void set_value(const std::string& leaf_name, const std::string & value, const std::string & value2, const std::string & value3)
-            {
-                if(leaf_name == "child-key")
-                {
-                    child_key = value;
-                }
-            }
 
             YLeaf child_key;
         };
@@ -268,8 +209,8 @@ TEST_CASE("test_create")
                              {"enabled", {"true", YFilter::not_set, true, "", ""}},
                              {"bits-field", {"bit1 bit2", YFilter::not_set, true, "", ""}}}};
 
-    REQUIRE(test.get_entity_path(nullptr).path == "test");
-    REQUIRE(test.has_data() == false);
+    REQUIRE(get_entity_path(test, nullptr).path == "test");
+    REQUIRE(has_data(test) == false);
 
     test.name = test_value;
     test.enabled = true;
@@ -277,8 +218,8 @@ TEST_CASE("test_create")
     test.bits_field["bit1"] = true;
     test.bits_field["bit2"] = true;
 
-    REQUIRE(test.has_data() == true);
-    REQUIRE(test.get_entity_path(nullptr) == expected);
+    REQUIRE(has_data(test) == true);
+    REQUIRE(get_entity_path(test, nullptr) == expected);
 }
 
 TEST_CASE("test_unequal")
@@ -297,8 +238,8 @@ TEST_CASE("test_unequal")
     test2.bits_field["bit1"] = true;
     test2.bits_field["bit2"] = false;
 
-    REQUIRE(test1.has_data() == true);
-    REQUIRE(test2.has_data() == true);
+    REQUIRE(has_data(test1) == true);
+    REQUIRE(has_data(test2) == true);
     REQUIRE(test1 != test2);
 }
 
@@ -319,8 +260,8 @@ TEST_CASE("test_unequal_child")
     test2.bits_field["bit1"] = true;
     test2.bits_field["bit2"] = false;
 
-    REQUIRE(test1.has_data() == true);
-    REQUIRE(test2.has_data() == true);
+    REQUIRE(has_data(test1) == true);
+    REQUIRE(has_data(test2) == true);
 
     cout<<test1<<endl;
     cout<<test2<<endl;
@@ -343,8 +284,8 @@ TEST_CASE("test_equal")
     test2.bits_field["bit1"] = false;
     test2.bits_field["bit2"] = true;
 
-    REQUIRE(test1.has_data() == true);
-    REQUIRE(test2.has_data() == true);
+    REQUIRE(has_data(test1) == true);
+    REQUIRE(has_data(test2) == true);
     REQUIRE(test1 == test2);
 }
 
@@ -366,8 +307,8 @@ TEST_CASE("test_equal_child")
     test2.bits_field["bit2"] = true;
     test2.child->child_val = 23;
 
-    REQUIRE(test1.has_data() == true);
-    REQUIRE(test2.has_data() == true);
+    REQUIRE(has_data(test1) == true);
+    REQUIRE(has_data(test2) == true);
 
     cout<<test1<<endl;
     cout<<test2<<endl;
@@ -377,28 +318,28 @@ TEST_CASE("test_read")
 {
     TestEntity test{};
 
-    REQUIRE(test.get_entity_path(nullptr).path == "test");
-    REQUIRE(test.has_data() == false);
+    REQUIRE(get_entity_path(test, nullptr).path == "test");
+    REQUIRE(has_data(test) == false);
 
-    test.set_value("name", "test test", "", "");
-    REQUIRE(test.has_data() == true);
+    set_value(test, "name", "test test", "", "", false);
+    REQUIRE(has_data(test) == true);
 
     auto child = test.get_child_by_name("child", "");
     REQUIRE(child != nullptr);
 
-    child->set_value("child-val", "123", "", "");
-    REQUIRE(child->has_data() == true);
+    set_value(*child, "child-val", "123", "", "", false);
+    REQUIRE(has_data(*child) == true);
 }
 
 TEST_CASE("test_multi_create")
 {
     TestEntity test{};
 
-    REQUIRE(test.get_entity_path(nullptr).path == "test");
-    REQUIRE(test.has_data() == false);
+    REQUIRE(get_entity_path(test, nullptr).path == "test");
+    REQUIRE(has_data(test) == false);
 
-    test.set_value("name", "test test", "", "");
-    REQUIRE(test.has_data() == true);
+    set_value(test, "name", "test test", "", "", false);
+    REQUIRE(has_data(test) == true);
 
     auto mchild = test.child->get_child_by_name("multi-child", "");
     REQUIRE(mchild != nullptr);
@@ -408,15 +349,15 @@ TEST_CASE("test_multi_read")
 {
     TestEntity test{};
 
-    REQUIRE(test.get_entity_path(nullptr).path == "test");
-    REQUIRE(test.has_data() == false);
+    REQUIRE(get_entity_path(test, nullptr).path == "test");
+    REQUIRE(has_data(test) == false);
 
-    test.set_value("name", "test test", "", "");
-    REQUIRE(test.has_data() == true);
+    set_value(test, "name", "test test", "", "", false);
+    REQUIRE(has_data(test) == true);
 
     auto mchild = make_shared<TestEntity::Child::MultiChild>();
     mchild->parent = test.child.get();
-    test.child->multi_child.push_back(move(mchild));
+    test.child->multi_child.push_back(mchild);
 
     auto m = test.child->get_child_by_name("multi-child", "multi-child[multi-key='abc']");
     REQUIRE(m != nullptr);

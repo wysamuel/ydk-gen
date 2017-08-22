@@ -22,7 +22,7 @@ class_inits_printer.py
 """
 from pyang.types import PathTypeSpec
 from ydkgen.api_model import Bits, Class, Package, DataType, Enum
-from ydkgen.common import get_module_name
+from ydkgen.common import get_module_name, get_type_name, get_leafs_children_python
 
 
 def get_leafs(clazz):
@@ -71,7 +71,7 @@ class ClassInitsPrinter(object):
             line = 'super(%s, self).__init__("%s", "%s", "%s:%s")' % (clazz.name, namespace, module_name, module_name, clazz.stmt.arg)
             self.ctx.writeln(line)
         else:
-            self.ctx.writeln('super(%s, self).__init__()' % clazz.qn())
+            #self.ctx.writeln('super(%s, self).__init__()' % clazz.qn())
             if clazz.owner is not None and isinstance(clazz.owner, Package):
                 self.ctx.writeln('self._top_entity = None')
             self.ctx.bline()
@@ -81,7 +81,16 @@ class ClassInitsPrinter(object):
                 self.ctx.writeln('self.is_presence_container = True')
             self._print_init_leafs_and_leaflists(clazz, leafs)
             self._print_init_children(children)
-        self._print_init_lists(clazz)
+            self._print_init_lists(clazz)
+            self.ctx.bline()
+            args = get_leafs_children_python(clazz, leafs, children)
+            self.ctx.writeln('super(%s, self).__init__('%(clazz.name))
+            self.ctx.lvl_inc()
+            self.ctx.writeln('%s,' % args[0])
+            self.ctx.writeln('%s,' % args[1])
+            self.ctx.writeln('%s,' % args[2])
+            self.ctx.writeln('%s)' % args[3])
+            self.ctx.lvl_dec()
 
     def _print_init_leafs_and_leaflists(self, clazz, leafs):
         yleafs = get_leafs(clazz)
@@ -103,7 +112,7 @@ class ClassInitsPrinter(object):
                 name = prop.stmt.arg
 
             self.ctx.writeln('self.%s = %s(YType.%s, "%s")'
-                % (prop.name, leaf_type, self._get_type_name(prop.property_type), name))
+                % (prop.name, leaf_type, get_type_name(prop.property_type), name))
 
     def _print_init_children(self, children):
         for child in children:
@@ -135,29 +144,6 @@ class ClassInitsPrinter(object):
     def _print_class_inits_trailer(self, clazz):
         self.ctx.lvl_dec()
         self.ctx.bline()
-
-    def _get_type_name(self, prop_type):
-        if prop_type.name == 'string':
-            return 'str'
-        elif prop_type.name == 'leafref':
-            return 'str'
-        elif prop_type.name == 'decimal64':
-            return 'str'
-        elif prop_type.name == 'union':
-            return 'str'
-        elif prop_type.name == 'binary':
-            return 'str'
-        elif prop_type.name == 'instance-identifier':
-            return 'str'
-        elif isinstance(prop_type, Bits):
-            return 'bits'
-        elif isinstance(prop_type, Class) and prop_type.is_identity():
-            return 'identityref'
-        elif isinstance(prop_type, Enum):
-            return 'enumeration'
-        elif isinstance(prop_type, DataType):
-            return 'str'
-        return prop_type.name
 
 class ClassSetAttrPrinter(object):
 

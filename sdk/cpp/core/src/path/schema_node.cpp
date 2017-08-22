@@ -254,6 +254,18 @@ ydk::path::SchemaNodeImpl::get_statement() const
     case LYS_UNKNOWN:
         break;
     }
+    if(m_node->nodetype == LYS_LEAF)
+    {
+        s.is_bits = (((lys_node_leaf*)m_node)->type.base == LY_TYPE_BITS);
+    }
+    else if(m_node->nodetype == LYS_LEAFLIST)
+    {
+        s.is_bits = (((lys_node_leaflist*)m_node)->type.base == LY_TYPE_BITS);
+    }
+    else
+    {
+        s.is_bits = false;
+    }
     return s;
 }
 

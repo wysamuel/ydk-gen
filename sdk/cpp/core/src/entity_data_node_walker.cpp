@@ -49,14 +49,14 @@ static string get_segment_path(const string & path);
 static void add_annotation_to_datanode(const Entity & entity, path::DataNode & data_node);
 static void add_annotation_to_datanode(const std::pair<std::string, LeafData> & name_value, path::DataNode & data_node);
 static path::Annotation get_annotation(YFilter yfilter);
-
+static bool is_bits(path::DataNode & node);
 
 //////////////////////////////////////////////////////////////////////////
 // DataNode* from Entity
 //////////////////////////////////////////////////////////////////////////
 path::DataNode& get_data_node_from_entity(Entity & entity, path::RootSchemaNode & root_schema)
 {
-    EntityPath root_path = entity.get_entity_path(nullptr);
+    EntityPath root_path = get_entity_path(entity, nullptr);
     auto & root_data_node = root_schema.create_datanode(root_path.path);
     if(is_set(entity.yfilter))
     {
@@ -71,13 +71,15 @@ path::DataNode& get_data_node_from_entity(Entity & entity, path::RootSchemaNode 
 
 static void walk_children(Entity & entity, path::DataNode & data_node)
 {
-    std::map<string, shared_ptr<Entity>> children = entity.get_children();
-    YLOG_DEBUG("Children count for: {} : {}",entity.get_entity_path(entity.parent).path, children.size());
+    std::map<string, shared_ptr<Entity>> children = get_children(entity);
+    YLOG_DEBUG("Children count for: {} : {}",get_entity_path(entity, entity.parent).path, children.size());
     for(auto const& child : children)
     {
+        if(child.second == nullptr)
+            continue;
         YLOG_DEBUG("==================");
-        YLOG_DEBUG("Looking at child '{}': {}",child.first, child.second->get_entity_path(child.second->parent).path);
-        if(child.second->has_operation() || child.second->has_data() || child.second->is_presence_container)
+        YLOG_DEBUG("Looking at child '{}': {}",child.first, get_entity_path(*(child.second), child.second->parent).path);
+        if(has_operation(*child.second) || has_data(*child.second) || child.second->is_presence_container)
             populate_data_node(*(child.second), data_node);
         else
             YLOG_DEBUG("Child has no data and no operations");
@@ -86,7 +88,7 @@ static void walk_children(Entity & entity, path::DataNode & data_node)
 
 static void populate_data_node(Entity & entity, path::DataNode & parent_data_node)
 {
-    EntityPath path = entity.get_entity_path(entity.parent);
+    EntityPath path = get_entity_path(entity, entity.parent);
     path::DataNode* data_node = &parent_data_node.create_datanode(path.path);
 
     if(is_set(entity.yfilter))
@@ -166,9 +168,10 @@ void get_entity_from_data_node(path::DataNode * node, std::shared_ptr<Entity> en
         std::string child_name = child_data_node->get_schema_node().get_statement().arg;
         if(data_node_is_leaf(*child_data_node))
         {
-            YLOG_DEBUG("Creating leaf {} of value '{}' in parent {}", child_name,
-                    child_data_node->get_value(), node->get_path());
-            entity->set_value(child_name, child_data_node->get_value());
+            bool i = is_bits(*child_data_node);
+            YLOG_DEBUG("Creating leaf {} of value '{}' in parent {}. Is bits: {}", child_name,
+                    child_data_node->get_value(), node->get_path(), i);
+            set_value(*entity, child_name, child_data_node->get_value(), "", "", i);
         }
         else
         {
@@ -208,6 +211,11 @@ static string get_segment_path(const string & path)
 {
     std::vector<std::string> segments = path::segmentalize(path);
     return segments.back();
+}
+
+static bool is_bits(path::DataNode & node)
+{
+    return node.get_schema_node().get_statement().is_bits;
 }
 
 }

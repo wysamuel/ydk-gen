@@ -38,7 +38,7 @@ from ydkgen.printer import printer_factory
 logger = logging.getLogger('ydkgen')
 logger.addHandler(logging.NullHandler())
 
-classes_per_source_file = 150
+classes_per_source_file = 350
 YDK_YANG_MODEL = 'ydk@2016-02-26.yang'
 
 

@@ -24,7 +24,6 @@
 from ydkgen.api_model import Class, Enum, Bits
 from ydkgen.common import convert_to_reStructuredText
 
-from .bits_printer import BitsPrinter
 from .class_printer import ClassPrinter
 from .enum_printer import EnumPrinter
 from ydkgen.printer.file_printer import FilePrinter
@@ -41,7 +40,6 @@ class ModulePrinter(FilePrinter):
     def print_header(self, package):
         self._print_module_description(package)
 
-        self.ctx.writeln("from ydk.entity_utils import get_relative_entity_path as _get_relative_entity_path")
         self.ctx.writeln("from ydk.types import Entity, EntityPath, Identity, Enum, YType, YLeaf, YLeafList, YList, LeafDataList, Bits, Empty, Decimal64")
         self.ctx.writeln("from ydk.filters import YFilter")
         self.ctx.writeln("from ydk.errors import YPYError, YPYModelError")
@@ -51,7 +49,6 @@ class ModulePrinter(FilePrinter):
 
     def print_body(self, package):
         self._print_module_enums(package)
-        self._print_module_bits(package)
         self._print_module_classes(package)
         self.ctx.bline()
 
@@ -67,46 +64,12 @@ class ModulePrinter(FilePrinter):
         self.ctx.bline()
         self.ctx.writeln('"""')
 
-    def _print_imports(self, package):
-        self._print_static_imports()
-        imports_to_print = set()
-
-        for imported_type in package.imported_types():
-            if all((id(imported_type) in self.identity_subclasses,
-                    self.is_derived_identity(package, imported_type))):
-                imported_stmt = 'from %s import %s' % (
-                    imported_type.get_py_mod_name(),
-                    imported_type.qn().split('.')[0])
-                imports_to_print.add(imported_stmt)
-
-        for imported_stmt in sorted(imports_to_print):
-            self.ctx.writeln(imported_stmt)
-
-        self.ctx.bline()
-
-    def _print_static_imports(self):
-        self.ctx.writeln('import re')
-        self.ctx.writeln('import collections')
-        self.ctx.bline()
-        self.ctx.writeln('from enum import Enum')
-        self.ctx.writeln('from ydk_.types import Entity, Enum')
-        self.ctx.writeln('from ydk.types import Empty, YList, YLeafList, DELETE, Decimal64, FixedBitsDict')
-        self.ctx.writeln('from ydk.errors import YPYError, YPYModelError')
-        self.ctx.bline()
-
     def _print_module_enums(self, package):
         enumz = []
         enumz.extend(
             [element for element in package.owned_elements if isinstance(element, Enum)])
         for nested_enumz in sorted(enumz, key=lambda element: element.name):
             self._print_enum(nested_enumz)
-
-    def _print_module_bits(self, package):
-        bits = []
-        bits.extend(
-            [bit for bit in package.owned_elements if isinstance(bit, Bits)])
-        for bit in sorted(bits, key=lambda bit: bit.name):
-            self._print_bits(bit)
 
     def _print_module_classes(self, package):
         ClassPrinter(self.ctx, self.sort_clazz, self.module_namespace_lookup).print_output(

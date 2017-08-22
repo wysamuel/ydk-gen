@@ -469,3 +469,149 @@ def get_path_sep(lang):
     elif lang == 'cpp':
         sep = '->'
     return sep
+
+
+def has_list_ancestor(clazz):
+    c = clazz.owner
+    parents = []
+
+    while c is not None and not isinstance(c,atypes.Package):
+        parents.append(c)
+        c = c.owner
+
+    for p in parents:
+        key_props = p.get_key_props()
+        if key_props is not None and len(key_props) > 0:
+            return True
+    return False
+
+
+def is_top_level_class(clazz):
+    return clazz.owner is not None and isinstance(clazz.owner, atypes.Package)
+
+
+def get_type_name(prop_type):
+    if prop_type.name == 'string':
+        return 'str'
+    elif prop_type.name == 'leafref':
+        return 'str'
+    elif prop_type.name == 'decimal64':
+        return 'str'
+    elif prop_type.name == 'union':
+        return 'str'
+    elif prop_type.name == 'binary':
+        return 'str'
+    elif prop_type.name == 'instance-identifier':
+        return 'str'
+    elif isinstance(prop_type, atypes.Bits):
+        return 'bits'
+    elif isinstance(prop_type, atypes.Class) and prop_type.is_identity():
+        return 'identityref'
+    elif isinstance(prop_type, atypes.Enum):
+        return 'enumeration'
+    elif isinstance(prop_type, atypes.DataType):
+        return 'str'
+    return prop_type.name
+
+
+def get_yang_name_for_leaf(clazz, prop):
+    if all((prop.stmt.top.arg != clazz.stmt.top.arg,
+            hasattr(prop.stmt.top, 'i_aug_targets') and
+                    clazz.stmt.top in prop.stmt.top.i_aug_targets)):
+        name = ':'.join([prop.stmt.top.arg, prop.stmt.arg])
+    else:
+        name = prop.stmt.arg
+    return name
+
+
+def get_leafs_children_cpp(clazz, leafs, children):
+    leaf_names_list = []
+    leaflist_names_list = []
+    for leaf in leafs:
+        if leaf.is_many:
+            l = leaflist_names_list
+        else:
+            l = leaf_names_list
+        l.append(leaf.name)
+
+    leaf_names = '{%s}' % (', '.join(['&%s' % n for n in leaf_names_list]))
+    leaflist_names = '{%s}' % (', '.join(['&%s' % n for n in leaflist_names_list]))
+    child_names = 'std::map<std::string, Entity*>{%s}' % (', '.join(['{"%s", %s.get()}' % (child.stmt.arg, child.name) for child in children if not child.is_many]))
+    list_names  = 'std::map<std::string, std::vector<std::shared_ptr<Entity>> *>{%s}' % (', '.join(['{"%s", reinterpret_cast<std::vector<std::shared_ptr<Entity>>*>(&%s)}' % (child.stmt.arg, child.name) for child in children if child.is_many]))
+    return (child_names, list_names, leaf_names, leaflist_names)
+
+
+def get_leafs_children_python(clazz, leafs, children):
+    leaf_names_list = []
+    leaflist_names_list = []
+    for leaf in leafs:
+        if leaf.is_many:
+            l = leaflist_names_list
+        else:
+            l = leaf_names_list
+        l.append(leaf.name)
+
+    leaf_names = '[%s]' % (', '.join(['self.%s' % n for n in leaf_names_list]))
+    leaflist_names = '[%s]' % (', '.join(['self.%s' % n for n in leaflist_names_list]))
+    child_names = 'EntityMap()' # % (', '.join(['"%s": self.%s' % (child.stmt.arg, child.name) for child in children if not child.is_many]))
+    list_names  = 'EntityListMap()' # % (', '.join(['"%s": self.%s' % (child.stmt.arg, child.name) for child in children if child.is_many]))
+    return (child_names, list_names, leaf_names, leaflist_names)
+
+
+def get_absolute_path_for_class(clazz):
+    parents = []
+    p = clazz
+    while p is not None and not isinstance(p, atypes.Package):
+        if p != clazz:
+            parents.append(p)
+        p = p.owner
+
+    parents.reverse()
+    path = ''
+    for p in parents:
+        if len(path) == 0:
+            path += p.owner.stmt.arg
+            path += ':'
+            path += p.stmt.arg
+        else:
+            path += '/'
+            if p.stmt.i_module.arg != p.owner.stmt.i_module.arg:
+                path += p.stmt.i_module.arg
+                path += ':'
+            path += p.stmt.arg
+    slash = ""
+    if len(path) > 0:
+        slash = "/"
+    path = "%s%s" % (path, slash)
+    return path
+
+
+def get_segment_path_for_class(clazz, insert_token, key_name_format):
+    path = '"'
+    if clazz.owner is not None:
+        if isinstance(clazz.owner, atypes.Package):
+            path += clazz.owner.stmt.arg + ':'
+        elif clazz.owner.stmt.i_module.arg != clazz.stmt.i_module.arg:
+            path += clazz.stmt.i_module.arg + ':'
+
+    path += clazz.stmt.arg
+    path += '"'
+    predicates = ''
+    key_props = clazz.get_key_props()
+    for key_prop in key_props:
+        predicates += insert_token
+        predicates += '"['
+        if key_prop.stmt.i_module.arg != clazz.stmt.i_module.arg:
+            predicates += key_prop.stmt.i_module.arg
+            predicates += ':'
+        predicates += key_prop.stmt.arg + '='
+        predicates += "'"
+        predicates += '"'
+        predicates += insert_token
+        predicates += (key_name_format) % key_prop.name + insert_token
+        predicates += '"'
+        predicates += "'"
+        predicates += ']"'
+
+    path = '%s%s' % (path, predicates)
+    return path

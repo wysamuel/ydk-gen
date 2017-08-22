@@ -50,7 +50,7 @@ XmlSubtreeCodec::XmlSubtreeCodec()
 //////////////////////////////////////////////////////////////////
 std::string XmlSubtreeCodec::encode(Entity & entity, path::RootSchemaNode & root_schema)
 {
-    EntityPath root_path = entity.get_entity_path(nullptr);
+    EntityPath root_path = get_entity_path(entity, nullptr);
     auto & root_data_node = root_schema.create_datanode(root_path.path);
     xmlDocPtr doc = xmlNewDoc(to_xmlchar("1.0"));
     xmlNodePtr root_node = xmlNewNode(NULL, to_xmlchar(entity.yang_name));
@@ -64,13 +64,15 @@ std::string XmlSubtreeCodec::encode(Entity & entity, path::RootSchemaNode & root
 
 static void walk_children(Entity & entity, const path::SchemaNode & schema, xmlNodePtr xml_node)
 {
-    std::map<string, shared_ptr<Entity>> children = entity.get_children();
-    YLOG_DEBUG("XML: Children count for: {} : {}",entity.get_entity_path(entity.parent).path, children.size());
+    std::map<string, shared_ptr<Entity>> children = get_children(entity);
+    YLOG_DEBUG("XML: Children count for: {} : {}",get_entity_path(entity, entity.parent).path, children.size());
     for(auto const& child : children)
     {
+        if(child.second == nullptr)
+            continue;
         YLOG_DEBUG("==================");
-        YLOG_DEBUG("XML: Looking at child '{}': {}",child.first, child.second->get_entity_path(child.second->parent).path);
-        if(child.second->has_operation() || child.second->has_data() || child.second->is_presence_container)
+        YLOG_DEBUG("XML: Looking at child '{}': {}",child.first, get_entity_path(*(child.second), child.second->parent).path);
+        if(has_operation(*child.second) || has_data(*child.second) || child.second->is_presence_container)
             populate_xml_node(*(child.second), schema, xml_node);
         else
             YLOG_DEBUG("XML: Child has no data and no operations");
@@ -125,7 +127,7 @@ static xmlNodePtr create_and_populate_xml_node(const path::SchemaNode & parent_s
 
 static void populate_xml_node(Entity & entity, const path::SchemaNode & parent_schema, xmlNodePtr xml_node)
 {
-    EntityPath path = entity.get_entity_path(entity.parent);
+    EntityPath path = get_entity_path(entity, entity.parent);
     const path::SchemaNode* schema = find_child_by_name(parent_schema, entity.get_segment_path());
 
     xmlNodePtr child = create_and_populate_xml_node(parent_schema, *schema, entity.yfilter, xml_node, NULL);
@@ -237,7 +239,7 @@ static void check_and_set_leaf(Entity & entity, Entity * parent, xmlNodePtr xml_
     if(xml_node->children == NULL)
     {
         YLOG_DEBUG("XML: Creating leaf '{}' with no value", current_node_name);
-        entity.set_filter(current_node_name, YFilter::read);
+        set_filter(entity, current_node_name, YFilter::read);
     }
     else
     {
@@ -290,14 +292,14 @@ static void check_and_set_content(Entity & entity, const string & leaf_name, xml
         string c = resolve_leaf_value_namespace(to_string(content), name_space, name_space_prefix, &entity);
 
         YLOG_DEBUG("XML: Creating leaf '{}' with value '{}'", leaf_name, c);
-        entity.set_value(leaf_name, c, name_space, name_space_prefix);
+        set_value(entity, leaf_name, c, name_space, name_space_prefix, false);
     }
 }
 
 static void check_payload_to_raise_exception(Entity & entity, const xmlChar * name)
 {
     string current_node_name{to_string(name)};
-    if(!entity.has_leaf_or_child_of_name(current_node_name))
+    if(!has_leaf_or_child_of_name(entity, current_node_name))
     {
         ostringstream os;os<<"Wrong payload! <" << current_node_name << "> not found";
         YLOG_ERROR(os.str().c_str());

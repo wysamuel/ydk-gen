@@ -152,9 +152,9 @@ set(libydk_src
     src/netconf_provider.cpp
     src/netconf_service.cpp
     src/path/netconf_session.cpp
-    src/network_topology.cpp
-    src/opendaylight_parser.cpp
-    src/opendaylight_provider.cpp
+    #src/network_topology.cpp
+    #src/opendaylight_parser.cpp
+    #src/opendaylight_provider.cpp
     src/restconf_client.cpp
     src/restconf_provider.cpp
     src/validation_service.cpp
@@ -204,9 +204,9 @@ set(libydk_install_headers
     src/netconf_client.hpp
     src/netconf_provider.hpp
     src/netconf_service.hpp
-    src/network_topology.hpp
-    src/opendaylight_parser.hpp
-    src/opendaylight_provider.hpp
+    #src/network_topology.hpp
+    #src/opendaylight_parser.hpp
+    #src/opendaylight_provider.hpp
     src/path_api.hpp
     src/restconf_client.hpp
     src/restconf_provider.hpp

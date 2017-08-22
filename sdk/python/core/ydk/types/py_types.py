@@ -21,7 +21,6 @@
         - YLeafList
         - Entity
 """
-from ydk.ext.types import ChildrenMap
 from ydk.ext.types import Enum as _Enum
 from ydk.ext.types import YLeaf as _YLeaf
 from ydk.ext.types import YLeafList as _YLeafList
@@ -127,32 +126,32 @@ class Entity(_Entity):
         if not isinstance(other, Entity):
             return True
         return super(Entity, self).__ne__(other)
-
-    def get_children(self):
-        children = ChildrenMap()
-
-        for name in self.__dict__:
-            value = self.__dict__[name]
-            if isinstance(value, Entity) and name != '_top_entity':
-                if name not in self._children_name_map:
-                    continue
-                children[name] = value
-            elif isinstance(value, YList):
-                for v in value:
-                    if isinstance(v, Entity):
-                        children[v.get_segment_path()] = v
-        self._local_refs["ydk::children"] = children
-        return children
-
-    def _get_child_by_seg_name(self, segs):
-        for seg in segs:
-            for name in self._children_name_map:
-                if seg == self._children_name_map[name]:
-                    return self.__dict__[name]
-            for name in self._local_refs:
-                if seg == name.lstrip("ydk::seg::"):
-                    return self._local_refs[name]
-        return None
+    #
+    # def get_children(self):
+    #     children = ChildrenMap()
+    #
+    #     for name in self.__dict__:
+    #         value = self.__dict__[name]
+    #         if isinstance(value, Entity) and name != '_top_entity':
+    #             if name not in self._children_name_map:
+    #                 continue
+    #             children[name] = value
+    #         elif isinstance(value, YList):
+    #             for v in value:
+    #                 if isinstance(v, Entity):
+    #                     children[v.get_segment_path()] = v
+    #     self._local_refs["ydk::children"] = children
+    #     return children
+    #
+    # def _get_child_by_seg_name(self, segs):
+    #     for seg in segs:
+    #         for name in self._children_name_map:
+    #             if seg == self._children_name_map[name]:
+    #                 return self.__dict__[name]
+    #         for name in self._local_refs:
+    #             if seg == name.lstrip("ydk::seg::"):
+    #                 return self._local_refs[name]
+    #     return None
 
     def _check_monkey_patching_error(self, name, value):
         obj = self.__dict__.get(name)

@@ -48,7 +48,6 @@ class SourcePrinter(MultiFilePrinter):
         self.ctx.bline()
         self.ctx.writeln('#include <sstream>')
         self.ctx.writeln('#include <iostream>')
-        self.ctx.writeln('#include <ydk/entity_util.hpp>')
         self.ctx.writeln('#include "bundle_info.hpp"')
         self.ctx.writeln('#include "generated_entity_lookup.hpp"')
         self.ctx.writeln('#include "{0}"'.format(multi_file.file_name.replace('.cpp', '.hpp')))

@@ -471,6 +471,8 @@ struct Statement {
     std::string  arg;
     /// the namespace if any
     std::string  name_space;
+    /// is bits type
+    bool is_bits;
 
 };
 
@@ -971,7 +973,6 @@ public:
     std::string path;
  private:
     std::vector<ModelProvider*> model_providers;
-    bool using_temp_directory;
 
     // class Repository is the resource manager class for RepositoryPtr,
     // which is shared by all DataNode/SchemaNode/RootDataNode/RootSchemaNode

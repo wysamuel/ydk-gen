@@ -132,12 +132,11 @@ public:
         );
     }
 
-    const ydk::EntityPath get_entity_path(ydk::Entity* ancestor) const override {
-        PYBIND11_OVERLOAD_PURE(
-            ydk::EntityPath,
+    std::string get_absolute_path() const override {
+        PYBIND11_OVERLOAD(
+            std::string,
             ydk::Entity,
-            get_entity_path,
-            ancestor
+            get_absolute_path
         );
     }
 
@@ -149,53 +148,6 @@ public:
         );
     }
 
-    bool has_data() const override {
-        PYBIND11_OVERLOAD_PURE(
-            bool,
-            ydk::Entity,
-            has_data
-        );
-    }
-
-    bool has_operation() const override {
-        PYBIND11_OVERLOAD_PURE(
-            bool,
-            ydk::Entity,
-            has_operation
-        );
-    }
-
-    bool has_leaf_or_child_of_name(const std::string & name) const override {
-        PYBIND11_OVERLOAD_PURE(
-            bool,
-            ydk::Entity,
-            has_leaf_or_child_of_name,
-            name
-        );
-    }
-
-    void set_value(const std::string & value_path, const std::string & value, const std::string & name_space, const std::string & name_space_prefix) override {
-        PYBIND11_OVERLOAD_PURE(
-            void,
-            ydk::Entity,
-            set_value,
-            value_path,
-            value,
-            name_space,
-            name_space_prefix
-        );
-    }
-
-    void set_filter(const std::string & value_path, ydk::YFilter yfilter) override {
-        PYBIND11_OVERLOAD_PURE(
-            void,
-            ydk::Entity,
-            set_filter,
-            value_path,
-            yfilter
-        );
-    }
-
     std::shared_ptr<ydk::Entity> get_child_by_name(const std::string & yang_name, const std::string & segment_path="") override {
         PYBIND11_OVERLOAD_PURE(
             std::shared_ptr<ydk::Entity>,
@@ -203,14 +155,6 @@ public:
             get_child_by_name,
             yang_name,
             segment_path
-        );
-    }
-
-    ChildrenMap get_children() const override {
-        PYBIND11_OVERLOAD_PURE(
-            ChildrenMap &,
-            ydk::Entity,
-            get_children,
         );
     }
 };
@@ -450,14 +394,12 @@ PYBIND11_PLUGIN(ydk_)
 
     class_<ydk::Entity, PyEntity, shared_ptr<ydk::Entity>>(types, "Entity")
         .def(init<>())
-        .def("get_entity_path", &ydk::Entity::get_entity_path, return_value_policy::reference)
+        //.def(init<EntityMap,
+        //          EntityListMap,
+        //          std::vector<ydk::YLeaf*> , std::vector<ydk::YLeafList*> >())
+        .def("get_absolute_path", &ydk::Entity::get_absolute_path, return_value_policy::reference)
         .def("get_segment_path", &ydk::Entity::get_segment_path, return_value_policy::reference)
         .def("get_child_by_name", &ydk::Entity::get_child_by_name, return_value_policy::reference)
-        .def("set_value", &ydk::Entity::set_value, return_value_policy::reference)
-        .def("set_filter", &ydk::Entity::set_filter, return_value_policy::reference)
-        .def("has_data", &ydk::Entity::has_data, return_value_policy::reference)
-        .def("has_operation", &ydk::Entity::has_operation, return_value_policy::reference)
-        .def("get_children", &ydk::Entity::get_children, return_value_policy::reference)
         .def("clone_ptr", &ydk::Entity::clone_ptr)
         .def("__eq__", [](ydk::Entity& left, ydk::Entity& right)
                          {
@@ -471,6 +413,8 @@ PYBIND11_PLUGIN(ydk_)
         .def_readwrite("yang_name", &ydk::Entity::yang_name, return_value_policy::reference)
         .def_readwrite("yang_parent_name", &ydk::Entity::yang_parent_name, return_value_policy::reference)
         .def_readwrite("is_presence_container", &ydk::Entity::is_presence_container, return_value_policy::reference)
+        .def_readwrite("is_top_level_class", &ydk::Entity::is_top_level_class, return_value_policy::reference)
+        .def_readwrite("has_list_ancestor", &ydk::Entity::has_list_ancestor, return_value_policy::reference)
         .def_property("parent", &ydk::Entity::get_parent, &ydk::Entity::set_parent);
 
 
@@ -722,7 +666,6 @@ PYBIND11_PLUGIN(ydk_)
         .def("encode", &ydk::XmlSubtreeCodec::encode, return_value_policy::reference)
         .def("decode", &ydk::XmlSubtreeCodec::decode);
 
-    entity_utils.def("get_relative_entity_path", &ydk::get_relative_entity_path);
     entity_utils.def("get_entity_from_data_node", &ydk::get_entity_from_data_node);
     #if defined(PYBIND11_OVERLOAD_CAST)
     entity_utils.def("get_data_node_from_entity", overload_cast<ydk::Entity&, ydk::path::RootSchemaNode&>(&ydk::get_data_node_from_entity), return_value_policy::reference);

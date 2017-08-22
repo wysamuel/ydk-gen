@@ -30,34 +30,13 @@ class ClassGetChildByNamePrinter(object):
         self._print_class_get_child_header(clazz)
         self._print_class_get_child_body(children)
         self._print_class_get_child_trailer(clazz)
-        leafs = []
-        for prop in clazz.properties():
-            ptype = prop.property_type
-            if ptype is not None:
-                if (isinstance(ptype, Class) and ptype.is_identity()) or not isinstance(ptype, Class):
-                    leafs.append(prop)
-        self._print_has_leaf_or_child_of_name(clazz, children, leafs)
-
-    def _print_has_leaf_or_child_of_name(self, clazz, children, leafs):
-        self.ctx.writeln('def has_leaf_or_child_of_name(self, name):')
-        self.ctx.lvl_inc()
-        if(len(children) > 0 or len(leafs) > 0):
-            props = children+leafs
-            if_condition = ' or '.join('name == "%s"'% x.stmt.arg for x in props)
-            self.ctx.writeln('if(%s):' % if_condition)
-            self.ctx.lvl_inc()
-            self.ctx.writeln('return True')
-            self.ctx.lvl_dec()
-        self.ctx.writeln('return False')
-        self.ctx.lvl_dec()
-        self.ctx.bline()
 
     def _print_class_get_child_header(self, clazz):
         self.ctx.writeln('def get_child_by_name(self, child_yang_name, segment_path):')
         self.ctx.lvl_inc()
 
     def _print_class_get_child_body(self, children):
-        self._print_class_get_child_common()
+        # self._print_class_get_child_common()
         for child in children:
             self._print_class_get_child(child)
             self.ctx.bline()
@@ -90,8 +69,8 @@ class ClassGetChildByNamePrinter(object):
         self.ctx.lvl_dec()
         self.ctx.writeln('c = %s()' % (child.property_type.qn()))
         self.ctx.writeln('c.parent = self')
-        self.ctx.writeln('local_reference_key = "ydk::seg::%s" % segment_path')
-        self.ctx.writeln('self._local_refs[local_reference_key] = c')
+        # self.ctx.writeln('local_reference_key = "ydk::seg::%s" % segment_path')
+        # self.ctx.writeln('self._local_refs[local_reference_key] = c')
         self.ctx.writeln('self.%s.append(c)' % child.name)
         self.ctx.writeln('return c')
 
@@ -100,7 +79,7 @@ class ClassGetChildByNamePrinter(object):
         self.ctx.lvl_inc()
         self.ctx.writeln('self.%s = %s()' % (child.name, child.property_type.qn()))
         self.ctx.writeln('self.%s.parent = self' % child.name)
-        self.ctx.writeln('self._children_name_map["%s"] = "%s"' % (child.name, child.stmt.arg))
+        # self.ctx.writeln('self._children_name_map["%s"] = "%s"' % (child.name, child.stmt.arg))
         self.ctx.lvl_dec()
         self.ctx.writeln('return self.%s' % child.name)
 

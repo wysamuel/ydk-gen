@@ -24,10 +24,7 @@ from ydkgen.api_model import Class, Package
 from ydkgen.common import snake_case
 
 from .class_constructor_printer import ClassConstructorPrinter
-from .class_has_data_printer import ClassHasDataPrinter
-from .class_get_children_printer import ClassGetChildrenPrinter
 from .class_get_child_printer import ClassGetChildPrinter
-from .class_set_value_printer import ClassSetYLeafPrinter
 from .class_get_entity_path_printer import GetEntityPathPrinter, GetSegmentPathPrinter
 
 
@@ -57,15 +54,10 @@ class ClassSourcePrinter(object):
     def _print_class_method_definitions(self, clazz, leafs, children):
         if clazz.is_identity():
             return
-        self._print_class_has_data(clazz, leafs, children)
-        self._print_class_has_operation(clazz, leafs, children)
         self._print_class_get_segment_path(clazz)
         self._print_class_get_path(clazz, leafs)
         self._print_class_set_child(clazz, children)
-        self._print_class_get_children(clazz, children)
-        self._print_class_set_value(clazz, leafs)
         self._print_top_level_entity_functions(clazz, leafs)
-        self._print_has_leaf_or_child_of_name(clazz, children, leafs)
 
     def _print_top_level_entity_functions(self, clazz, leafs):
         if clazz.owner is not None and isinstance(clazz.owner, Package):
@@ -120,22 +112,6 @@ class ClassSourcePrinter(object):
         self.ctx.writeln('}')
         self.ctx.bline()
 
-    def _print_has_leaf_or_child_of_name(self, clazz, children, leafs):
-        self.ctx.writeln('bool %s::has_leaf_or_child_of_name(const std::string & name) const' % clazz.qualified_cpp_name())
-        self.ctx.writeln('{')
-        self.ctx.lvl_inc()
-        if(len(children) > 0 or len(leafs) > 0):
-            props = children+leafs
-            if_condition = ' || '.join('name == "%s"'% x.stmt.arg for x in props)
-            self.ctx.writeln('if(%s)' % if_condition)
-            self.ctx.lvl_inc()
-            self.ctx.writeln('return true;')
-            self.ctx.lvl_dec()
-        self.ctx.writeln('return false;')
-        self.ctx.lvl_dec()
-        self.ctx.writeln('}')
-        self.ctx.bline()
-
     def _get_class_members(self, clazz, leafs, children):
         for prop in clazz.properties():
             ptype = prop.property_type
@@ -144,26 +120,11 @@ class ClassSourcePrinter(object):
             elif ptype is not None:
                 leafs.append(prop)
 
-    def _print_class_get_children(self, clazz, children):
-        ClassGetChildrenPrinter(self.ctx).print_class_get_children(clazz, children)
-
-    def _print_class_has_data(self, clazz, leafs, children):
-        ClassHasDataPrinter(self.ctx).print_class_has_data(clazz, leafs, children)
-
-    def _print_class_has_operation(self, clazz, leafs, children):
-        ClassHasDataPrinter(self.ctx).print_class_has_operation(clazz, leafs, children)
-
     def _print_class_get_segment_path(self, clazz):
         GetSegmentPathPrinter(self.ctx).print_output(clazz)
 
     def _print_class_get_path(self, clazz, leafs):
         GetEntityPathPrinter(self.ctx).print_output(clazz, leafs)
 
-    def _print_class_create_child(self, clazz, children):
-        ClassCreateChildPrinter(self.ctx).print_class_create_child(clazz, children)
-
     def _print_class_set_child(self, clazz, children):
         ClassGetChildPrinter(self.ctx).print_class_get_child(clazz, children)
-
-    def _print_class_set_value(self, clazz, leafs):
-        ClassSetYLeafPrinter(self.ctx).print_class_set_value(clazz, leafs)
