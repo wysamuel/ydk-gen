@@ -54,7 +54,9 @@ std::string XmlSubtreeCodec::encode(Entity & entity, path::RootSchemaNode & root
     auto & root_data_node = root_schema.create_datanode(root_path.path);
     xmlDocPtr doc = xmlNewDoc(to_xmlchar("1.0"));
     xmlNodePtr root_node = xmlNewNode(NULL, to_xmlchar(entity.yang_name));
-    xmlNewProp(root_node, (const unsigned char *)"xmlns", to_xmlchar(root_data_node.get_schema_node().get_statement().name_space));
+    auto & s = root_data_node.get_schema_node();
+
+    xmlNewProp(root_node, (const unsigned char *)"xmlns", to_xmlchar(s.get_statement().name_space));
 
     populate_xml_node_contents(root_data_node.get_schema_node(), root_path, root_node);
     walk_children(entity, root_data_node.get_schema_node(), root_node);

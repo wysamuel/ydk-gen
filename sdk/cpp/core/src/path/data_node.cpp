@@ -46,6 +46,11 @@ ydk::path::DataNode::create_datanode(const std::string& path)
 //////////////////////////////////////////////////////////////////////////
 ydk::path::DataNodeImpl::DataNodeImpl(DataNode* parent, lyd_node* node, const std::shared_ptr<RepositoryPtr> & repo): m_parent{parent}, m_node{node}, m_priv_repo{repo}
 {
+    YLOG_DEBUG("creating datanodeimpl with null? pare: {} and m_node: {}", parent==nullptr?"null":"not null", node==nullptr?"null":"not null");
+    if(parent!=nullptr)
+        YLOG_DEBUG("\tparen: {}", parent->get_schema_node().get_statement().arg);
+    if(node!=nullptr)
+        YLOG_DEBUG("\tm_node: {}", node->schema->name);
     //add the children
     if(m_node && m_node->child && !(m_node->schema->nodetype == LYS_LEAF ||
                           m_node->schema->nodetype == LYS_LEAFLIST ||
@@ -53,6 +58,7 @@ ydk::path::DataNodeImpl::DataNodeImpl(DataNode* parent, lyd_node* node, const st
     {
         lyd_node *iter = nullptr;
         LY_TREE_FOR(m_node->child, iter) {
+            YLOG_DEBUG("inserting ly_node: {}", iter->schema->name);
             child_map.insert(std::make_pair(iter, std::make_shared<DataNodeImpl>(this, iter, m_priv_repo)));
         }
     }
@@ -71,6 +77,11 @@ const ydk::path::SchemaNode&
 ydk::path::DataNodeImpl::get_schema_node() const
 {
     auto schema_ptr = reinterpret_cast<const SchemaNode*>(m_node->schema->priv);
+    if(schema_ptr == nullptr)
+    {
+        YLOG_ERROR("schema node is null for {}:{}.", m_node->schema->module->name, m_node->schema->name);
+        throw(YCPPInvalidArgumentError{"schema node is null."});
+    }
     return *schema_ptr;
 }
 

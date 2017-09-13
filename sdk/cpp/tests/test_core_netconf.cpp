@@ -28,6 +28,8 @@
 #include "config.hpp"
 #include "catch.hpp"
 
+using namespace std;
+
 const char* expected_bgp_output ="\
 <bgp xmlns=\"http://openconfig.net/yang/bgp\">\
 <global>\
@@ -352,3 +354,85 @@ TEST_CASE( "bgp_xr_openconfig"  )
 //
 //
 //}
+
+
+TEST_CASE( "xre" )
+{
+    ydk::path::NetconfSession session{"172.26.47.103", "admin", "cisco123"};
+    ydk::path::RootSchemaNode& schema = session.get_root_schema();
+
+    ydk::path::Codec s{};
+    
+    std::shared_ptr<ydk::path::Rpc> delete_rpc { schema.create_rpc("ydk:read") };
+
+    auto & p = schema.create_datanode("IF-MIB:IF-MIB", "");
+    auto a = p.get_schema_node().get_statement().name_space;
+    cout<<a<<endl;
+
+    auto xml = s.encode(p, ydk::EncodingFormat::XML, false);
+
+    delete_rpc->get_input_node().create_datanode("filter", xml);
+
+    //call delete
+    auto r = (*delete_rpc)(session);
+    xml = s.encode(*r, ydk::EncodingFormat::XML, false);
+    cout<<xml<<endl;
+
+    auto & bgp = schema.create_datanode("CISCO-CDP-MIB:CISCO-CDP-MIB", "");
+
+    a = bgp.get_schema_node().get_statement().name_space;
+    cout<<a<<endl;
+
+
+    xml = s.encode(bgp, ydk::EncodingFormat::XML, false);
+    cout<<"hooo!! "<<xml<<endl;
+
+    std::shared_ptr<ydk::path::Rpc> delete_rpc1 { schema.create_rpc("ydk:read") };
+
+    delete_rpc1->get_input_node().create_datanode("filter", xml);
+
+    //call delete
+    auto r1=(*delete_rpc1)(session);
+    xml = s.encode(*r1, ydk::EncodingFormat::XML, false);
+    cout<<xml<<endl;
+}
+
+
+TEST_CASE( "xre1" )
+{
+    ydk::path::NetconfSession session{"172.26.47.103", "admin", "cisco123"};
+    ydk::path::RootSchemaNode& schema = session.get_root_schema();
+
+    ydk::path::Codec s{};
+
+    std::shared_ptr<ydk::path::Rpc> delete_rpc { schema.create_rpc("ydk:read") };
+
+    auto & bgp = schema.create_datanode("CISCO-CDP-MIB:CISCO-CDP-MIB", "");
+    auto a = bgp.get_schema_node().get_statement().name_space;
+    cout<<a<<endl;
+
+    auto xml = s.encode(bgp, ydk::EncodingFormat::XML, false);
+
+    std::shared_ptr<ydk::path::Rpc> delete_rpc1 { schema.create_rpc("ydk:read") };
+    delete_rpc1->get_input_node().create_datanode("filter", xml);
+
+    //call delete
+    auto r=(*delete_rpc1)(session);
+    xml = s.encode(*r, ydk::EncodingFormat::XML, false);
+    cout<<xml<<endl;
+
+    auto & p = schema.create_datanode("IF-MIB:IF-MIB", "");
+
+    a = p.get_schema_node().get_statement().name_space;
+    cout<<a<<endl;
+
+
+    xml = s.encode(p, ydk::EncodingFormat::XML, false);
+
+    delete_rpc->get_input_node().create_datanode("filter", xml);
+
+    //call delete
+    auto r1=(*delete_rpc)(session);
+    xml = s.encode(*r1, ydk::EncodingFormat::XML, false);
+    cout<<xml<<endl;
+}

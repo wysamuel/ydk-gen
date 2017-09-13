@@ -27,6 +27,9 @@
 #include <ydk_ydktest/openconfig_platform.hpp>
 #include <ydk_ydktest/openconfig_platform_types.hpp>
 
+#include <ydk_cisco_ios_xe/CISCO_CDP_MIB.hpp>
+#include <ydk_cisco_ios_xe/IF_MIB.hpp>
+
 #include "config.hpp"
 
 using namespace ydk;
@@ -300,4 +303,18 @@ TEST_CASE("oc_platform")
     reply = crud.delete_(provider, fil);
     REQUIRE(reply);
 
+}
+
+TEST_CASE("xer")
+{
+    NetconfServiceProvider provider{"172.26.47.103", "admin", "cisco123"};
+    CrudService crud{};
+
+    cisco_ios_xe::CISCO_CDP_MIB::CISCOCDPMIB cdp {};
+    auto reply = crud.read(provider, cdp);
+    REQUIRE(reply!=nullptr);
+
+    cisco_ios_xe::IF_MIB::IFMIB i {};
+    reply = crud.read(provider, i);
+    REQUIRE(reply!=nullptr);
 }

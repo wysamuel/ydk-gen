@@ -40,6 +40,7 @@ ydk::path::SchemaNode::~SchemaNode()
 ////////////////////////////////////////////////////////////////////
 ydk::path::SchemaNodeImpl::SchemaNodeImpl(const SchemaNode* parent, struct lys_node* node):m_parent{parent}, m_node{node}, m_children{}
 {
+    YLOG_DEBUG("setting priv of {} to this", m_node->name);
     node->priv = this;
     if(node->nodetype != LYS_LEAF && node->nodetype != LYS_LEAFLIST) {
 
