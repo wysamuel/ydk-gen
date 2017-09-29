@@ -44,7 +44,7 @@ ydk::path::DataNode::create_datanode(const std::string& path)
 ////////////////////////////////////////////////////////////////////////////
 // class ydk::DataNodeImpl
 //////////////////////////////////////////////////////////////////////////
-ydk::path::DataNodeImpl::DataNodeImpl(DataNode* parent, lyd_node* node, const std::shared_ptr<RepositoryPtr> & repo): m_parent{parent}, m_node{node}, m_priv_repo{repo}
+ydk::path::DataNodeImpl::DataNodeImpl(DataNode* parent, lyd_node* node, const std::shared_ptr<ModelRefresher> & model_refresher): m_parent{parent}, m_node{node}, model_refresher{model_refresher}
 {
     //add the children
     if(m_node && m_node->child && !(m_node->schema->nodetype == LYS_LEAF ||
@@ -53,7 +53,7 @@ ydk::path::DataNodeImpl::DataNodeImpl(DataNode* parent, lyd_node* node, const st
     {
         lyd_node *iter = nullptr;
         LY_TREE_FOR(m_node->child, iter) {
-            child_map.insert(std::make_pair(iter, std::make_shared<DataNodeImpl>(this, iter, m_priv_repo)));
+            child_map.insert(std::make_pair(iter, std::make_shared<DataNodeImpl>(this, iter, model_refresher)));
         }
     }
 
@@ -61,10 +61,10 @@ ydk::path::DataNodeImpl::DataNodeImpl(DataNode* parent, lyd_node* node, const st
 
 ydk::path::DataNodeImpl::~DataNodeImpl()
 {
-    if (!m_parent)
-    {
-        lyd_free_withsiblings(m_node);
-    }
+//    if (!m_parent)
+//    {
+//        lyd_free_withsiblings(m_node);
+//    }
 }
 
 const ydk::path::SchemaNode&
@@ -216,7 +216,7 @@ ydk::path::DataNodeImpl::create_helper(const std::string& path, const std::strin
 
     if (first_node_created)
     {
-        dn->child_map.insert(std::make_pair(first_node_created, std::make_shared<DataNodeImpl>(dn, first_node_created, m_priv_repo)));
+        dn->child_map.insert(std::make_pair(first_node_created, std::make_shared<DataNodeImpl>(dn, first_node_created, model_refresher)));
 
         DataNodeImpl* rdn = dynamic_cast<DataNodeImpl*>(dn->child_map[first_node_created].get());
 

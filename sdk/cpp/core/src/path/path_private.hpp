@@ -39,54 +39,17 @@
 
 #include "../path_api.hpp"
 
+struct xmlNodePtr;
 
 namespace ydk {
     namespace path {
 
+        class ModelRefresher;
+        class PathParser;
+
         std::vector<std::string> segmentalize(const std::string& path);
 
         std::unordered_set<std::string> segmentalize_module_names(const std::string& value);
-
-        class RepositoryPtr : public std::enable_shared_from_this<RepositoryPtr> {
-        public:
-            explicit RepositoryPtr(ModelCachingOption caching_option);
-            explicit RepositoryPtr(const std::string& search_dir, ModelCachingOption caching_option);
-            ~RepositoryPtr();
-
-            std::shared_ptr<RootSchemaNode> create_root_schema(const std::vector<std::unordered_map<std::string, path::Capability>>& lookup_tables,
-                                                               const std::vector<path::Capability>& caps_to_load);
-
-            void add_model_provider(ModelProvider* model_provider);
-            void remove_model_provider(ModelProvider* model_provider);
-            std::vector<ModelProvider*> get_model_providers() const;
-
-            std::vector<const lys_module*> get_new_ly_modules_from_lookup(ly_ctx* ctx,
-                                                                          const std::unordered_set<std::string>& keys,
-                                                                          const std::unordered_map<std::string, path::Capability>& lookup_table);
-            std::vector<const lys_module*> get_new_ly_modules_from_path(ly_ctx* ctx,
-                                                                        const std::string& path,
-                                                                        const std::unordered_map<std::string, path::Capability>& lookup_table);
-
-        public:
-            std::string path;
-
-        private:
-            ly_ctx* create_ly_context();
-
-            void load_module_from_capabilities(ly_ctx* ctx, const std::vector<path::Capability>& caps);
-
-            const lys_module* load_module(ly_ctx* ctx, const std::string& module_name);
-            const lys_module* load_module(ly_ctx* ctx, const std::string& module_name, bool& new_module);
-            const lys_module* load_module(ly_ctx* ctx, ydk::path::Capability& capability);
-            const lys_module* load_module(ly_ctx* ctx, ydk::path::Capability& capability, bool& new_module);
-            const lys_module* load_module(ly_ctx* ctx, const std::string& module_name, const std::string& revision);
-            const lys_module* load_module(ly_ctx* ctx, const std::string& module_name, const std::string& revision, const std::vector<std::string>& features, bool& new_module);
-
-         private:
-            std::vector<ModelProvider*> model_providers;
-            bool using_temp_directory;
-            ModelCachingOption caching_option;
-        };
 
         class SchemaNodeImpl : public SchemaNode
         {
@@ -122,8 +85,8 @@ namespace ydk {
         class RootSchemaNodeImpl : public RootSchemaNode
         {
         public:
-            explicit RootSchemaNodeImpl(struct ly_ctx* ctx, const std::shared_ptr<RepositoryPtr> & repo);
-            explicit RootSchemaNodeImpl(struct ly_ctx* ctx, const std::shared_ptr<RepositoryPtr> & repo,
+            explicit RootSchemaNodeImpl(struct ly_ctx* ctx, const std::shared_ptr<ModelRefresher> & model_refresher);
+            explicit RootSchemaNodeImpl(struct ly_ctx* ctx, const std::shared_ptr<ModelRefresher> & model_refresher,
                                                    const std::vector<std::unordered_map<std::string, path::Capability>>& lookup_tables);
 
             ~RootSchemaNodeImpl();
@@ -138,32 +101,19 @@ namespace ydk {
 
             std::shared_ptr<Rpc> create_rpc(const std::string& path);
 
-            void populate_new_schemas_from_path(const std::string& path);
-            void populate_new_schemas_from_payload(const std::string& payload, ydk::EncodingFormat format);
-
-
             struct ly_ctx* m_ctx;
             std::vector<std::unique_ptr<DataNode>> m_root_data_nodes;
             std::vector<std::unique_ptr<SchemaNode>> m_children;
 
         private:
 
-            void populate_all_module_schemas();
-            void populate_module_schema(const struct lys_module*);
-            void populate_augmented_schema_nodes(const struct lys_module* module);
-            void populate_augmented_schema_node(std::vector<lys_node*>& ancestors, struct lys_node* target);
-            void populate_new_schemas(std::vector<const lys_module*>& new_modules);
-
-            const std::shared_ptr<RepositoryPtr> m_priv_repo;
-            const std::unordered_map<std::string, path::Capability> m_name_lookup;
-            const std::unordered_map<std::string, path::Capability> m_namespace_lookup;
         };
 
 
         class DataNodeImpl : public DataNode{
 
         public:
-            DataNodeImpl(DataNode* parent, struct lyd_node* node, const std::shared_ptr<RepositoryPtr> & repo);
+            DataNodeImpl(DataNode* parent, struct lyd_node* node, const std::shared_ptr<ModelRefresher> & model_refresher);
 
             //no copy constructor
             DataNodeImpl(const DataNodeImpl& dn) = delete;
@@ -221,7 +171,7 @@ namespace ydk {
             std::map<struct lyd_node*, std::shared_ptr<DataNode>> child_map;
 
         private:
-            const std::shared_ptr<RepositoryPtr> m_priv_repo;
+            const std::shared_ptr<ModelRefresher> model_refresher;
 
         };
 
@@ -229,7 +179,7 @@ namespace ydk {
         class RootDataImpl : public DataNodeImpl {
         public:
             RootDataImpl(const SchemaNode& schema, struct ly_ctx* ctx, const std::string & path);
-            RootDataImpl(const SchemaNode& schema, struct ly_ctx* ctx, const std::string & path, const std::shared_ptr<RepositoryPtr> & repo);
+            RootDataImpl(const SchemaNode& schema, struct ly_ctx* ctx, const std::string & path, const std::shared_ptr<ModelRefresher> & model_refresher);
 
             ~RootDataImpl();
 
@@ -258,14 +208,14 @@ namespace ydk {
             void populate_new_schemas_from_path(const std::string& path);
 
         private:
-            const std::shared_ptr<RepositoryPtr> m_priv_repo;
+            const std::shared_ptr<ModelRefresher> model_refresher;
         };
 
 
         class RpcImpl : public Rpc {
         public:
 
-            RpcImpl(SchemaNodeImpl& sn, struct ly_ctx* ctx, const std::shared_ptr<RepositoryPtr> & repo);
+            RpcImpl(SchemaNodeImpl& sn, struct ly_ctx* ctx, const std::shared_ptr<ModelRefresher> & model_refresher);
 
             ~RpcImpl();
 
@@ -282,12 +232,59 @@ namespace ydk {
             std::unique_ptr<DataNodeImpl> data_node;
 
         private:
-            const std::shared_ptr<RepositoryPtr> m_priv_repo;
+            const std::shared_ptr<ModelRefresher> model_refresher;
 
         };
 
-    }
+        class ModelRefresher {
+        public:
+            ModelRefresher(ly_ctx* ctx);
+            ~ModelRefresher();
 
+            std::vector<const lys_module*> get_new_ly_modules_from_lookup(ly_ctx* ctx,
+                                                                          const std::unordered_set<std::string>& keys,
+                                                                          const std::unordered_map<std::string, path::Capability>& lookup_table);
+            std::vector<const lys_module*> get_new_ly_modules_from_path(ly_ctx* ctx,
+                                                                        const std::string& path,
+                                                                        const std::unordered_map<std::string, path::Capability>& lookup_table);
+
+
+            void load_module_from_capabilities(ly_ctx* ctx, const std::vector<path::Capability>& caps);
+
+            const lys_module* load_module(ly_ctx* ctx, const std::string& module_name);
+            const lys_module* load_module(ly_ctx* ctx, const std::string& module_name, bool& new_module);
+            const lys_module* load_module(ly_ctx* ctx, ydk::path::Capability& capability);
+            const lys_module* load_module(ly_ctx* ctx, ydk::path::Capability& capability, bool& new_module);
+            const lys_module* load_module(ly_ctx* ctx, const std::string& module_name, const std::string& revision);
+            const lys_module* load_module(ly_ctx* ctx, const std::string& module_name, const std::string& revision, const std::vector<std::string>& features, bool& new_module);
+
+            void populate_new_schemas_from_path(const std::string& path);
+            void populate_new_schemas_from_payload(const std::string& payload, EncodingFormat format);
+
+            void populate_all_module_schemas();
+            void populate_module_schema(const struct lys_module*);
+            void populate_augmented_schema_nodes(const struct lys_module* module);
+            void populate_augmented_schema_node(std::vector<lys_node*>& ancestors, struct lys_node* target);
+            void populate_new_schemas(std::vector<const lys_module*>& new_modules);
+
+        private:
+            const std::unordered_map<std::string, path::Capability> m_name_lookup;
+            const std::unordered_map<std::string, path::Capability> m_namespace_lookup;
+
+            ModelCachingOption caching_option;
+            ly_ctx* m_ctx;
+        };
+
+        class PathParser {
+        public:
+            PathParser();
+            ~PathParser();
+
+            std::unordered_set<std::string> get_namespaces_from_xml_payload(const std::string& payload);
+            std::unordered_set<std::string> get_module_names_from_json_payload(const std::string& payload);
+        };
+
+}
 }
 
 

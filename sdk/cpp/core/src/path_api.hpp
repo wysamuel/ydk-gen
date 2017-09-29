@@ -239,7 +239,6 @@ class DataNode;
 class Rpc;
 class SchemaNode;
 class RootSchemaNode;
-class RepositoryPtr;
 
 enum class ModelCachingOption {
     COMMON,
@@ -967,14 +966,12 @@ public:
     ///
     std::vector<ModelProvider*> get_model_providers() const;
 
-
     std::string path;
- private:
-    std::vector<ModelProvider*> model_providers;
 
-    // class Repository is the resource manager class for RepositoryPtr,
-    // which is shared by all DataNode/SchemaNode/RootDataNode/RootSchemaNode
-    std::shared_ptr<RepositoryPtr> m_priv_repo;
+ private:
+    ModelCachingOption caching_option;
+    std::vector<ModelProvider*> model_providers;
+    bool using_temp_directory;
 };
 
 /// @note to Session implementors

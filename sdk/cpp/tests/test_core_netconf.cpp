@@ -352,3 +352,26 @@ TEST_CASE( "bgp_xr_openconfig"  )
 //
 //
 //}
+
+
+TEST_CASE("xri")
+{
+    ydk::path::NetconfSession session{"domingo", "admin", "admin"};
+    ydk::path::RootSchemaNode& schema = session.get_root_schema();
+
+    auto & runner = schema.create_datanode("openconfig-interfaces:interfaces", "");
+
+    runner.create_datanode("interface[name='GigabitEthernet0/0/0/2']/config/name", "GigabitEthernet0/0/0/2");
+    runner.create_datanode("interface[name='GigabitEthernet0/0/0/2']/config/type", "iana-if-type:ethernetCsmacd");
+
+    ydk::path::Codec s{};
+    auto xml = s.encode(runner, ydk::EncodingFormat::XML, false);
+
+    CHECK( !xml.empty());
+
+
+    //call create
+    std::shared_ptr<ydk::path::Rpc> create_rpc { schema.create_rpc("ydk:create") };
+    create_rpc->get_input_node().create_datanode("entity", xml);
+    (*create_rpc)(session);
+}

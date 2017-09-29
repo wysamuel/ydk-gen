@@ -166,8 +166,10 @@ set(libydk_src
     src/path/annotation.cpp
     src/path/capability.cpp
     src/path/data_node.cpp
+    src/path/model_refresher.cpp
     src/path/netconf_model_provider.cpp
     src/path/path.cpp
+    src/path/path_parser.cpp
     src/path/repository.cpp
     src/path/restconf_session.cpp
     src/path/root_data_node.cpp
