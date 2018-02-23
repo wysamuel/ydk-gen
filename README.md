@@ -67,8 +67,8 @@ Ubuntu (Debian-based):
 **Install prebuilt libydk binary:**
 ```
    $ sudo apt-get install gdebi-core python3-dev python-dev libtool-bin
-   $ wget https://devhub.cisco.com/artifactory/debian-ydk/0.7.0/libydk_0.7.0-1_amd64.deb
-   $ sudo gdebi libydk_0.7.0-1_amd64.deb
+   $ wget https://devhub.cisco.com/artifactory/debian-ydk/0.7.1-alpha/libydk_0.7.1-1_amd64.deb
+   $ sudo gdebi libydk_0.7.1-1_amd64.deb
 ```
 **To build from source:**
 ```
@@ -79,7 +79,8 @@ Centos (Fedora-based):
 **Install prebuilt libydk binary:**
 ```
    $ sudo yum install epel-release libssh-devel gcc-c++
-   $ sudo yum install https://devhub.cisco.com/artifactory/rpm-ydk/0.7.0/libydk-0.7.0-1.x86_64.rpm
+   $ sudo yum install https://devhub.cisco.com/artifactory/rpm-ydk/0.7.1-alpha/libydk-0.7.1-1.x86_64.rpm
+==== BASE ====
 ```
 **To build from source:**
 ```
@@ -98,8 +99,8 @@ You can download the latest python package from [here](https://www.python.org/do
    $ xcode-select --install
    $ /usr/bin/ruby -e "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install)"
    $ brew install python pkg-config libssh xml2 curl pcre cmake
-   $ curl -O https://devhub.cisco.com/artifactory/osx-ydk/0.7.0/libydk-0.7.0-Darwin.pkg
-   $ sudo installer -pkg libydk-0.7.0-Darwin.pkg -target /
+   $ curl -O https://devhub.cisco.com/artifactory/osx-ydk/0.7.1-alpha/libydk-0.7.1-Darwin.pkg
+   $ sudo installer -pkg libydk-0.7.1-Darwin.pkg -target /
 ```
 **To build from source:**
 ```
@@ -109,7 +110,7 @@ You can download the latest python package from [here](https://www.python.org/do
 ```
 
 ## Windows
-Currently, ``YDK-Py`` and ``YDK-Cpp`` from release ``0.7.0`` onwards is not supported on Windows.
+Currently, ``YDK-Py`` and ``YDK-Cpp`` from release ``0.6.0`` onwards is not supported on Windows.
 
 # Installation
 ## Setting up your environment
@@ -396,4 +397,4 @@ Join the [YDK community](https://communities.cisco.com/community/developer/ydk) 
 
 Release Notes
 ===============
-The current YDK release version is 0.7.0 (alpha). YDK-Gen is licensed under the Apache 2.0 License.
+The current YDK release version is 0.7.1-alpha (alpha). YDK-Gen is licensed under the Apache 2.0 License.
