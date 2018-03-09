@@ -45,7 +45,7 @@ function run_exec_test {
 
 function run_test_no_coverage {
     print_msg "Executing: $@"
-    python $@
+    ${PYTHON_BIN} $@
     local status=$?
     if [ $status -ne 0 ]; then
         exit $status
@@ -74,11 +74,11 @@ function pip_check_install {
         os_info=$(cat /etc/*-release)
         if [[ ${os_info} == *"fedora"* ]]; then
             print_msg "Custom pip install of $@ for CentOS"
-            pip install --install-option="--install-purelib=/usr/lib64/python2.7/site-packages" --no-deps $@
+            ${PIP_BIN} install --install-option="--install-purelib=/usr/lib64/python${PYTHON_VERSION}/site-packages" --no-deps $@
             return
         fi
     fi
-    pip install $@
+    ${PIP_BIN} install $@
 }
 
 ######################################################################
@@ -125,7 +125,7 @@ function init_py_env {
         virtualenv macos_pyenv -p python3.6
         source macos_pyenv/bin/activate
     fi
-    pip install -r requirements.txt coverage pybind11==2.2.2
+    ${PIP_BIN} install -r requirements.txt coverage pybind11==2.2.2
 }
 
 function init_go_env {
@@ -199,8 +199,8 @@ function install_py_core {
     cd $YDKGEN_HOME/sdk/python/core
     print_msg "Building python with coverage"
     export YDK_COVERAGE=
-    python setup.py sdist
-    pip install dist/ydk*.tar.gz
+    ${PYTHON_BIN} setup.py sdist
+    ${PIP_BIN} install dist/ydk*.tar.gz
 
 #    print_msg "Generating py binaries"
 #    sudo ./generate_python_binary.sh
@@ -408,12 +408,12 @@ function py_sanity_ydktest_test {
     cp -r gen-api/python/ydktest-bundle/ydk/models/* sdk/python/core/ydk/models
 
     print_msg "Uninstall ydk py core from pip for testing with coverage"
-    pip uninstall ydk -y
+    ${PIP_BIN} uninstall ydk -y
     export OLDPYTHONPATH=$PYTHONPATH
 
     print_msg "Build & copy cpp-wrapper to sdk directory to gather coverage"
     cd $YDKGEN_HOME
-    cd sdk/python/core/ && python setup.py build
+    cd sdk/python/core/ && ${PYTHON_BIN} setup.py build
     print_msg "Set new python path to gather coverage"
     export PYTHONPATH=$PYTHONPATH:$(pwd)
     cp build/lib*/*.so .
@@ -432,7 +432,7 @@ function py_sanity_ydktest_test {
     cd sdk/python/core/
     rm -f *.so
     print_msg "Restore ydk py core to pip"
-    pip install dist/ydk*.tar.gz
+    ${PIP_BIN} install dist/ydk*.tar.gz
 
     cd $YDKGEN_HOME
 }
@@ -506,7 +506,7 @@ function py_sanity_deviation_ydktest_gen {
 function py_sanity_deviation_ydktest_install {
     print_msg "py_sanity_deviation_ydktest_install"
 
-    pip uninstall ydk-models-ydktest -y && pip_check_install gen-api/python/ydktest-bundle/dist/ydk*.tar.gz
+    ${PIP_BIN} uninstall ydk-models-ydktest -y && pip_check_install gen-api/python/ydktest-bundle/dist/ydk*.tar.gz
 }
 
 function py_sanity_deviation_ydktest_test {
@@ -562,8 +562,8 @@ function py_sanity_augmentation_install {
     print_msg "py_sanity_augmentation_install"
 
     cd $YDKGEN_HOME
-    pip uninstall ydk -y
-    pip install gen-api/python/ydk/dist/ydk*.tar.gz
+    ${PIP_BIN} uninstall ydk -y
+    ${PIP_BIN} install gen-api/python/ydk/dist/ydk*.tar.gz
     pip_check_install gen-api/python/augmentation-bundle/dist/*.tar.gz
 }
 
@@ -593,7 +593,7 @@ function py_sanity_one_class_per_module {
     print_msg "Running one class per module tests"
     cd $YDKGEN_HOME
     run_test generate.py --bundle profiles/test/ydktest.json -o
-    pip uninstall ydk-models-ydktest -y
+    ${PIP_BIN} uninstall ydk-models-ydktest -y
     pip_check_install gen-api/python/ydktest-bundle/dist/ydk*.tar.gz
     run_test sdk/python/core/tests/test_sanity_levels.py
     run_test sdk/python/core/tests/test_sanity_types.py
@@ -619,9 +619,9 @@ function py_test_gen_test {
     cd $YDKGEN_HOME
     init_confd $YDKGEN_HOME/sdk/cpp/core/tests/confd/testgen/confd
     cd gen-api/python/models_test-bundle/ydk/models/models_test/test/
-    python import_tests.py
+    ${PYTHON_BIN} import_tests.py
     cd models_test/
-    python -m unittest discover
+    ${PYTHON_BIN} -m unittest discover
 }
 
 function py_test_gen {
@@ -630,13 +630,26 @@ function py_test_gen {
     cd $YDKGEN_HOME
     run_test generate.py --core --python
     run_test generate.py --bundle profiles/test/ydk-models-test.json  --generate-tests --python &> /dev/null
-    pip install gen-api/python/ydk/dist/ydk*.tar.gz
+    ${PIP_BIN} install gen-api/python/ydk/dist/ydk*.tar.gz
     pip_check_install gen-api/python/models_test-bundle/dist/ydk*.tar.gz
 
     # py_test_gen_test
 }
 
 ########################## EXECUTION STARTS HERE #############################
+######################################
+# Parse args
+######################################
+PYTHON_VERSION=""
+
+args=`getopt p:d $*`
+set -- $args
+PYTHON_VERSION=${2}
+
+PYTHON_BIN=python${PYTHON_VERSION}
+PIP_BIN=pip${PYTHON_VERSION}
+
+print_msg "Using ${PYTHON_BIN} & ${PIP_BIN}"
 
 ######################################
 # Set up env
@@ -646,8 +659,8 @@ export YDKGEN_HOME="$(pwd)"
 os_type=$(uname)
 print_msg "Running OS type: $os_type"
 print_msg "YDKGEN_HOME is set to: ${YDKGEN_HOME}"
-print_msg "Python location: $(which python)"
-$(python -V)
+print_msg "Python location: $(which ${PYTHON_BIN})"
+$(${PYTHON_BIN} -V)
 
 CMAKE_BIN=cmake
 which cmake3
