@@ -56,6 +56,7 @@ class YList(list):
     def __init__(self, parent):
         super(YList, self).__init__()
         self.parent = parent
+        self.logger = logging.getLogger("ydk.types.YList")
 
     def __setattr__(self, name, value):
         if name == 'yfilter' and isinstance(value, _YFilter):
@@ -67,10 +68,12 @@ class YList(list):
     def append(self, item):
         item.parent = self.parent
         super(YList, self).append(item)
+        self.logger.debug('Appending list with "%s"' % (item))
 
     def extend(self, items):
        for item in items:
            self.append(item)
+       self.logger.debug('Extending list with "%s"' % (items))
 
 
 class YLeafList(_YLeafList):
@@ -81,15 +84,18 @@ class YLeafList(_YLeafList):
         super(YLeafList, self).__init__(ytype, leaf_name)
         self.ytype = ytype
         self.leaf_name = leaf_name
+        self.logger = logging.getLogger("ydk.types.YLeafList")
 
     def append(self, item):
         if isinstance(item, _YLeaf):
             item = item.get()
+        self.logger.debug('Appending leaf-list "%s" with "%s"' % (self.leaf_name, item))
         super(YLeafList, self).append(item)
 
     def extend(self, items):
         for item in items:
             self.append(item)
+        self.logger.debug('Extending leaf-list "%s" with "%s"' % (self.leaf_name, items))
 
     def set(self, other):
         if not isinstance(other, YLeafList):
@@ -121,14 +127,15 @@ class Entity(_Entity):
     """
     def __init__(self):
         super(Entity, self).__init__()
+        self.logger = logging.getLogger("ydk.types.Entity")
         self._local_refs = {}
         self._children_name_map = OrderedDict()
         self._children_yang_names = set()
         self._child_classes = OrderedDict()
         self._leafs = OrderedDict()
+        self.is_presence_container = False
         self._segment_path = lambda : ''
         self._absolute_path = lambda : ''
-        self.logger = logging.getLogger("ydk.types.Entity")
 
     def __eq__(self, other):
         if not isinstance(other, Entity):
@@ -207,22 +214,33 @@ class Entity(_Entity):
         return None
 
     def has_data(self):
-        for name, leaf in self._leafs.items():
+        for name in self.__dict__:
             value = self.__dict__[name]
-            if isinstance(value, _YFilter):
+            if name in self._leafs:
+                leaf = self._leafs[name]
+                if isinstance(value, _YFilter) or leaf.yfilter != _YFilter.not_set:
+                    self.logger.debug('"%s" leaf has yfilter. So it has data.' % (name))
+                    return True
+                if isinstance(leaf, _YLeaf):
+                    if value is not None:
+                        if not isinstance(value, Bits) or len(value.get_bitmap()) > 0:
+                            self.logger.debug('"%s" leaf has data' % (name))
+                            return True
+                elif isinstance(leaf, _YLeafList) and len(value) > 0:
+                    self.logger.debug('"%s" leaf-list has data' % (name))
+                    return True
+            if isinstance(value, Entity) and value.has_data():
+                self.logger.debug('"%s" child has data' % (name))
                 return True
-            if isinstance(leaf, _YLeaf):
-                if value is not None:
-                    if not isinstance(value, Bits) or len(value.get_bitmap()) > 0:
-                        return True
-            elif isinstance(leaf, _YLeafList) and len(value) > 0:
-                return True
-            elif isinstance(leaf, Entity) and leaf.has_data():
-                return True
-            elif isinstance(leaf, YList):
-                for l in leaf:
+            elif isinstance(value, YList):
+                for l in value:
                     if l.has_data():
+                        self.logger.debug('"%s" list child has data' % (name))
                         return True
+
+        if self.is_presence_container:
+            return True
+        self.logger.debug('"%s" has no data' % (self.yang_name))
         return False
 
     def has_operation(self):
@@ -254,15 +272,20 @@ class Entity(_Entity):
         return False
 
     def set_value(self, path, value, name_space='', name_space_prefix=''):
+        self.logger.debug('Looking to set value of "%s" with "%s"' % (path, value))
         for name, leaf in self._leafs.items():
             if leaf.name == path:
                 if isinstance(leaf, _YLeaf):
                     if isinstance(self.__dict__[name], Bits):
                         self.__dict__[name][value] = True
                     else:
+                        self.logger.debug('Setting value of leaf "%s" with "%s"' % (name, value))
                         self.__dict__[name] = value
+                        leaf.set(value)
                 elif isinstance(leaf, _YLeafList):
+                    self.logger.debug('Appending value of leaf-list "%s" with "%s"' % (name, value))
                     self.__dict__[name].append(value)
+                    leaf.append(value)
 
     def set_filter(self, path, yfilter):
         pass
@@ -286,14 +309,17 @@ class Entity(_Entity):
             if isinstance(value, _YFilter):
                 leaf.yfilter = value
                 if isinstance(leaf, _YLeaf):
+                    self.logger.debug('Leaf "%s" has yfilter. Data: "%s"' % (name, leaf.get()))
                     leaf_name_data.append(leaf.get_name_leafdata())
                 elif isinstance(leaf, _YLeafList):
+                    self.logger.debug('Leaf-list "%s" has yfilter. Data: "%s"' % (name, ', '.join([x.get() for x in leaf.getYLeafs()])))
                     leaf_name_data.extend(leaf.get_name_leafdata())
             elif (type(value) not in (list, type(None), Bits)
                 or (isinstance(value, Bits) and len(value.get_bitmap()) > 0)):
                 leaf.set(value)
                 leaf_name_data.append(leaf.get_name_leafdata())
             elif isinstance(value, list) and len(value) > 0:
+                self.logger.debug('Leaf-list "%s" has data. Populating name_leaf_data' % name)
                 l = _YLeafList(YType.str, leaf.name)
                 # l = self._leafs[name]
                 # Above results in YModelError:
@@ -303,7 +329,11 @@ class Entity(_Entity):
                 #     Path: /ydktest-sanity:runner/one-list/identity-list/id-ref
                 for item in value:
                     l.append(item)
+                leaf.extend(value)
                 leaf_name_data.extend(l.get_name_leafdata())
+        self.logger.debug('Returning name_leaf_data of len: %s'%(len(leaf_name_data)))
+        for l in leaf_name_data:
+            self.logger.debug('Leaf name: "%s", value: "%s", yfilter: "%s", is_set: "%s"'%(l[0], l[1].value, l[1].yfilter, l[1].is_set))
         return leaf_name_data
 
     def get_segment_path(self):
@@ -331,16 +361,31 @@ class Entity(_Entity):
             if isinstance(value, _Enum.YLeaf):
                 value = value.name
             if name in leaf_names and name in self.__dict__:
+                self.logger.debug('Assigning attribute "%s" with value "%s"' % (name, value))
                 # bits ..?
-                self.__dict__[name] = value
-
+                prev_value = self.__dict__[name]
                 leaf = self._leafs[name]
-                if not isinstance(value, _YFilter):
+                if isinstance(value, _YFilter):
+                    self.logger.debug('Assigning leaf "%s" with yfilter "%s"' % (name, value))
+                    leaf.yfilter = value
+                    leaf.is_set = True
+                    if prev_value is not None or (isinstance(prev_value, list) and len(prev_value) > 0):
+                        if isinstance(leaf, _YLeaf):
+                            self.logger.debug('Saving leaf "%s" with "%s"' % (name, prev_value))
+                            leaf.set(prev_value)
+                        elif isinstance(leaf, _YLeafList):
+                            self.logger.debug('Saving previous leaf-list "%s" value "%s"' % (name, prev_value))
+                            leaf.extend(prev_value)
+                        return
+                else:
+                    self.__dict__[name] = value
                     if isinstance(leaf, _YLeaf):
+                        self.logger.debug('Assigning leaf "%s" with "%s"' % (name, value))
                         leaf.set(value)
                     elif isinstance(leaf, _YLeafList):
                         for item in value:
                             leaf.append(item)
+                            self.logger.debug('Appending leaf-list "%s" with "%s"' % (name, item))
 
             else:
                 if hasattr(value, "parent") and name != "parent":
